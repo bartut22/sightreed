@@ -1,12 +1,13 @@
 export class Metronome {
   private audioContext: AudioContext;
-  private scheduledClicks: number[] = [];
+   scheduledClicks: number[] = [];
   private startTime = 0;
   private onBeat?: (beatNumber: number, isBeatOne: boolean) => void;
   private totalBeats = 0;
   private isActive = false;
   private continuousInterval: number | null = null;
   private currentBeatNum = 0;
+  private definiteTimeout: NodeJS.Timeout | null = null;
 
   constructor(audioContext: AudioContext) {
     this.audioContext = audioContext;
@@ -52,22 +53,27 @@ export class Metronome {
     for (let i = 0; i < beats; i++) {
       const time = this.startTime + i * secondsPerBeat;
       this.scheduledClicks.push(time);
-      const isBeatOne = i % 4 === 0;
-      this.playClick(time, isBeatOne);
+      // const isBeatOne = i % 4 === 0;
+      // console.log(`start() beat loop iter ${i}`)
+      // this.playClick(time, isBeatOne);
     }
 
     const totalDuration = beats * secondsPerBeat;
     const completionTime = (totalDuration + 0.05) * 1000;
-    setTimeout(() => {
+    this.definiteTimeout = setTimeout(() => {
       onComplete();
     }, completionTime);
-
-    this.updateBeat();
+    
+    this.updateBeat(undefined, onComplete);
   }
-
-  private updateBeat = () => {
+  
+  private updateBeat = (time?: DOMHighResTimeStamp, completeCallback?: () => void) => {
+    // console.log(`Updating beats. ${this.scheduledClicks.length} scheduled clicks`)
     if (this.scheduledClicks.length === 0) return;
-
+    if (!this.isActive) {
+      this.stop(completeCallback);
+    }
+    
     const now = this.audioContext.currentTime;
     const nextClickTime = this.scheduledClicks[0];
 
@@ -75,13 +81,14 @@ export class Metronome {
       const beatNum = this.totalBeats - this.scheduledClicks.length + 1;
       const isBeatOne = (beatNum - 1) % 4 === 0;
 
+      this.playClick(nextClickTime, isBeatOne);
       if (this.onBeat) this.onBeat(beatNum, isBeatOne);
 
       this.scheduledClicks.shift();
     }
 
     if (this.scheduledClicks.length > 0) {
-      requestAnimationFrame(this.updateBeat);
+      requestAnimationFrame(t => this.updateBeat(t, completeCallback));
     }
   };
 
@@ -100,7 +107,8 @@ export class Metronome {
     osc.stop(time + 0.05);
   }
 
-  stop() {
+  stop(callback?: () => void) {
+    // console.log(`Request to stop, current taps = ${this.scheduledClicks.length}`)
     this.isActive = false;
     this.scheduledClicks = [];
     
@@ -108,6 +116,13 @@ export class Metronome {
       clearInterval(this.continuousInterval);
       this.continuousInterval = null;
     }
+
+    if (this.definiteTimeout !== null) {
+      clearTimeout(this.definiteTimeout);
+      this.definiteTimeout = null;
+    }
+
+    if (callback) callback();
   }
 
   isRunning(): boolean {

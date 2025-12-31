@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { RefObject, useEffect, useRef, useState } from "react"
 import { startAudio, getAudioContext } from "@/lib/audio"
 import { Metronome } from "@/lib/metronome"
 import PitchStaff from "@/components/PitchStaff"
@@ -37,11 +37,14 @@ export default function Home() {
     latencyMs: number
   } | null>(null)
 
-  const [settings, setSettings] = useState<GenerationSettings>({
-    bars: 2,
-    difficulty: 2,
-    centerMidi: 72,
-  })
+  // const [settings, setSettings] = useState<GenerationSettings>({
+  //   bars: 2,
+  //   difficulty: 2,
+  //   centerMidi: 72,
+  // })
+  const [settings, setSettings] = useState<GenerationSettings>()
+  const [difficultyChanged, setDifficultyChanged] = useState<boolean>(false);
+
   const [tempo, setTempo] = useState(120)
 
   const [generated, setGenerated] = useState<{ score: Score; seed: number } | null>(null)
@@ -71,6 +74,7 @@ export default function Home() {
 
   // Start audio when in loading state
   useEffect(() => {
+    if (appState === "ready") handleGenerate(false)
     if (appState !== "loading" && appState !== "stale-calibration") return
     console.log("Starting audio...")
 
@@ -83,27 +87,20 @@ export default function Home() {
         setHNR(h)
       }
     ).then(() => {
-      console.log('Audio started successfully')
+      // setAppState("ready")
+      // Initialize metronome! :)
+      if (!appState.includes("calibration")) {
+        const ctx = getAudioContext();
+        if (ctx) {
+          setMetronome(new Metronome(ctx))
+          console.log(`Audio started successfully`)
+          setAppState("ready")
+        }
+      }
     }).catch((e) => {
       console.error('Failed to start audio:', e)
     });
   }, [appState])
-
-  // Initialize metronome when BOTH calibration and audio are ready
-  useEffect(() => {
-    if (metronome) return
-
-    if (calibration && pitch !== null) {
-      const ctx = getAudioContext()
-      if (ctx) {
-        console.log('Initializing metronome with calibration and audio context')
-        setMetronome(new Metronome(ctx))
-        if (appState === "loading" || appState === "stale-calibration") {
-          setAppState("ready")
-        }
-      }
-    }
-  }, [calibration, metronome, pitch, appState])
 
   // Load calibration from localStorage on mount
   useEffect(() => {
@@ -133,9 +130,8 @@ export default function Home() {
     }
   }, [])
 
-  // Load exercise from URL on mount
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
+  function getUrlParamsForGeneration(link: string): { tempo: number | null, urlSettings: GenerationSettings | null } {
+    const params = new URLSearchParams(link)
     const seed = params.get('seed')
     const bars = params.get('bars')
     const difficulty = params.get('difficulty')
@@ -149,24 +145,50 @@ export default function Home() {
         seed: Number(seed),
       }
 
-      if (tempoParam) {
-        setTempo(Number(tempoParam))
+      return {
+        tempo: Number(tempoParam),
+        urlSettings: urlSettings
       }
+    }
 
-      setSettings(urlSettings)
+    return { tempo: null, urlSettings: null }
+  }
 
-      const gen = generatePhrase(urlSettings)
-      setGenerated(gen)
+  // Load exercise from URL on mount
+  useEffect(() => {
+    const { tempo, urlSettings } = getUrlParamsForGeneration(window.location.search);
+
+    if (!tempo) {
+      setTempo(120)
+      // TODO: Show modal when tempo is not passed in URL params
+    } else setTempo(tempo);
+
+    if (urlSettings) {
+      setSettings(urlSettings);
+      handleGenerate(false);
     }
   }, [])
 
+  useEffect(() => {
+    // Settings changed
+    const { tempo, urlSettings } = getUrlParamsForGeneration(window.location.search);
+    if (!urlSettings) return;
+    console.log(`Current url: ${window.location.search}`)
+    console.log(`Current settings: ${JSON.stringify(settings)}\nSettings from URL: ${JSON.stringify(urlSettings)}`);
+
+    if (settings) {
+      // If we change the difficulty, show the "update difficulty button"
+      setDifficultyChanged(urlSettings.difficulty != settings.difficulty);
+    }
+  }, [settings])
+
   const handleShare = () => {
-    if (!generated) return
+    if (!generated || !settings) return
 
     const params = new URLSearchParams({
       seed: generated.seed.toString(),
-      bars: (settings.bars ?? 2).toString(),
-      difficulty: (settings.difficulty ?? 2).toString(),
+      bars: (settings?.bars ?? -1).toString(),
+      difficulty: (settings.difficulty ?? -1).toString(),
       tempo: tempo.toString(),
     })
 
@@ -177,17 +199,18 @@ export default function Home() {
     })
   }
 
-  const handleGenerate = () => {
+  const handleGenerate = (generateSeed: boolean = true) => {
+    if (!settings) return
     const { seed, ...settingsWithoutSeed } = settings
-    const gen = generatePhrase(settingsWithoutSeed)
+    const gen = generatePhrase(generateSeed ? settingsWithoutSeed : settings)
     setGenerated(gen)
     setAssessment(null)
 
     // Update URL with new seed
     const params = new URLSearchParams({
       seed: gen.seed.toString(),
-      bars: (settings.bars ?? 2).toString(),
-      difficulty: (settings.difficulty ?? 2).toString(),
+      bars: (settings.bars ?? -1).toString(),
+      difficulty: (settings.difficulty ?? -1).toString(),
       tempo: tempo.toString(),
     })
     window.history.replaceState({}, '', `?${params.toString()}`)
@@ -240,12 +263,6 @@ export default function Home() {
       calibrationTime: Date.now(),
       ...baseline
     }))
-
-    const ctx = getAudioContext()
-    if (ctx) {
-      setMetronome(new Metronome(ctx))
-      setAppState("ready")
-    }
   }
 
   const handleStart = () => {
@@ -301,6 +318,7 @@ export default function Home() {
   }
 
   const handleStop = () => {
+    if (!settings) return
     console.log(`Stopping performance and assessing... (${trackerRef.current ? 'tracker exists' : 'no tracker'})`)
 
     if (!trackerRef.current) return
@@ -456,7 +474,7 @@ export default function Home() {
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <label style={{ fontSize: 12, color: "#aaa" }}>Bars</label>
               <select
-                value={settings.bars}
+                value={settings?.bars ?? -1}
                 onChange={(e) => setSettings({ ...settings, bars: Number(e.target.value) })}
                 disabled={appState === "performing" || appState === "countdown"}
                 style={{
@@ -477,7 +495,7 @@ export default function Home() {
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <label style={{ fontSize: 12, color: "#aaa" }}>Difficulty</label>
               <select
-                value={settings.difficulty}
+                value={settings?.difficulty ?? -1}
                 onChange={(e) =>
                   setSettings({ ...settings, difficulty: Number(e.target.value) as 1 | 2 | 3 | 4 | 5 })
                 }
@@ -500,7 +518,7 @@ export default function Home() {
             </div>
 
             <button
-              onClick={handleGenerate}
+              onClick={() => handleGenerate()}
               disabled={appState === "performing" || appState === "countdown"}
               style={{
                 background: "#1f6feb",
@@ -514,10 +532,34 @@ export default function Home() {
                 opacity: appState === "performing" || appState === "countdown" ? 0.5 : 1,
               }}
             >
-              Generate Exercise
+              + New Random Exercise
             </button>
 
-            {generated && (
+            {difficultyChanged && (
+              <button
+                onClick={() => {
+                  console.log(`Update difficulty clicked, now calling handleGenerate() (difficulty ${settings?.difficulty ?? "N/A"})`)
+                  handleGenerate(false)
+                  setDifficultyChanged(false)
+                }}
+                disabled={appState === "performing" || appState === "countdown"}
+                style={{
+                  background: "#1f6feb",
+                  color: "white",
+                  border: "none",
+                  padding: "8px 16px",
+                  borderRadius: 8,
+                  cursor: appState === "performing" || appState === "countdown" ? "not-allowed" : "pointer",
+                  fontWeight: 600,
+                  alignSelf: "flex-end",
+                  opacity: appState === "performing" || appState === "countdown" ? 0.5 : 1,
+                }}
+              >
+                🏋️‍♀️ Update Difficulty
+              </button>
+            )}
+
+            {generated && settings && (
               <button
                 onClick={handleShare}
                 disabled={appState === "performing" || appState === "countdown"}
@@ -621,7 +663,7 @@ export default function Home() {
               <div style={{ marginBottom: 4, fontSize: 13, color: "#888" }}>Expected:</div>
               <PhraseStaff
                 score={generated.score}
-                title={`${settings.bars}-bar exercise (Difficulty ${settings.difficulty}, ${tempo} BPM)`}
+                title={`${settings?.bars ?? "N/A"}-bar exercise (Difficulty ${settings?.difficulty ?? "N/A"}, ${tempo} BPM)`}
                 currentTime={appState === "performing" ? currentTime : 0}
                 tempo={tempo}
                 noteResults={assessment?.noteResults}

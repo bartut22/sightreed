@@ -50,6 +50,8 @@ export default function CalibrationModal({
   const [detectedLatency, setDetectedLatency] = useState<number | null>(null)
   const metronomeRef = useRef<Metronome | null>(null)
 
+  const TAPS_NEEDED = 8
+
   // Target ranges for good calibration
   const SOFT_TARGET_MIN = 0.015
   const SOFT_TARGET_MAX = 0.04
@@ -171,7 +173,7 @@ export default function CalibrationModal({
       (beat, isBeatOne) => {
         setCurrentBeat(beat)
         const clickTime = performance.now()
-        metronomeClickTimesRef.current.push(clickTime) // ✅ Use ref
+        metronomeClickTimesRef.current.push(clickTime)
       }
     )
   }
@@ -180,9 +182,15 @@ export default function CalibrationModal({
   const handleTap = () => {
     if (!isMetronomePlaying) return
     const tapTime = performance.now()
-    tapTimesRef.current.push(tapTime) // ✅ Use ref
+    tapTimesRef.current.push(tapTime)
     setTapCount(tapTimesRef.current.length) // Update display
     console.log(`Tap ${tapTimesRef.current.length} at ${tapTime}`)
+    if (tapTimesRef.current.length >= TAPS_NEEDED && metronomeRef.current !== null) {
+      console.log("Taps are done!")
+      setIsMetronomePlaying(false);
+      metronomeRef.current.stop(calculateLatency)
+      return
+    }
   }
 
   useEffect(() => {
@@ -204,10 +212,10 @@ export default function CalibrationModal({
     const clickTimes = metronomeClickTimesRef.current
     const taps = tapTimesRef.current
 
-    console.log(`Calculating latency: ${taps.length} taps, ${clickTimes.length} clicks`)
+    // console.log(`Calculating latency: ${taps.length} taps, ${clickTimes.length} clicks`)
 
     if (taps.length < 3) {
-      console.log('⚠️ Not enough taps, using 0ms latency')
+      // console.log('⚠️ Not enough taps, using 0ms latency')
       setDetectedLatency(0)
       setStep("complete")
       return
@@ -230,7 +238,7 @@ export default function CalibrationModal({
       // Offset = tap time - click time (positive = you tapped late)
       const offset = tap - closestClickTime
       offsets.push(offset)
-      console.log(`Tap at ${tap}, closest click at ${closestClickTime}, offset: ${offset}ms`)
+      // console.log(`Tap at ${tap}, closest click at ${closestClickTime}, offset: ${offset}ms`)
     }
 
     // Average offset (exclude outliers)
@@ -240,8 +248,8 @@ export default function CalibrationModal({
       ? trimmed.reduce((sum, v) => sum + v, 0) / trimmed.length
       : offsets.reduce((sum, v) => sum + v, 0) / offsets.length // Use all if too few
 
-    console.log(`Offsets: ${offsets.join(', ')}`)
-    console.log(`Average latency: ${Math.round(avgOffset)}ms`)
+    // console.log(`Offsets: ${offsets.join(', ')}`)
+    // console.log(`Average latency: ${Math.round(avgOffset)}ms`)
 
     setDetectedLatency(Math.round(avgOffset))
     setStep("complete")
@@ -463,7 +471,7 @@ export default function CalibrationModal({
                 fontWeight: 600,
               }}
             >
-              Start Latency Test (8 beats)
+              Start Latency Test ({TAPS_NEEDED} beats)
             </button>
           </>
         )}
@@ -499,7 +507,7 @@ export default function CalibrationModal({
               TAP HERE (or press spacebar)
             </button>
             <div style={{ textAlign: "center", marginTop: 16, color: "#888", fontSize: 14 }}>
-              Taps: {tapCount} / 8  {/* ✅ Use tapCount state for display */}
+              Taps: {tapCount} / {TAPS_NEEDED}  {/* ✅ Use tapCount state for display */}
             </div>
           </>
         )}
