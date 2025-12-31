@@ -60,6 +60,10 @@ export function durToTicks(d: Duration): number {
   }
 }
 
+export function totalTicks(durs: Duration[]): number {
+  return durs.reduce((s, d) => s + durToTicks(d), 0)
+}
+
 export function measureTicks(ts: TimeSig) {
   return ts.beats * TICKS_PER_QUARTER
 }
