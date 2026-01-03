@@ -52,8 +52,9 @@ type Cell = {
   isRest?: boolean[]
 }
 
-const BASE_CELLS: Cell[] = [
+const BASE_CELLS: Cell[] = [ // unbounded by difficulty
   { name: "two_quarters_step", relSteps: [0, 1], durs: ["q", "q"] },
+  { name: "quarter_and_rest", relSteps: [3, -3], durs: ["q", "q"], isRest: [false, true] },
   { name: "two_quarters_repeat", relSteps: [0, 0], durs: ["q", "q"] },
   { name: "quarter_then_2eighth", relSteps: [0, 1, 0], durs: ["q", "8", "8"] },
   { name: "half_note", relSteps: [0], durs: ["h"] },
@@ -73,24 +74,26 @@ type CellUpgrade = {
 const CELL_UPGRADES: Record<string, CellUpgrade[]> = {
   two_quarters_step: [
     { minDifficulty: 2, relSteps: [0, 2], durs: ["q", "q"] },
-    { minDifficulty: 2, relSteps: [0, 2], durs: ["q", "q"], isRest: [true, false]},
+    { minDifficulty: 2, relSteps: [0, 2], durs: ["q", "q"], isRest: [true, false] },
     { minDifficulty: 2, relSteps: [0, 1], durs: ["q.", "8"] },
     { minDifficulty: 2, relSteps: [0, -2], durs: ["q", "q"] },
-    { minDifficulty: 2, relSteps: [0, 1, 2], durs: ["8", "8", "q"] },
-    { minDifficulty: 2, relSteps: [0, -1, -2], durs: ["8", "8", "q"] },
-    { minDifficulty: 2, relSteps: [0, -1, -2], durs: ["8", "8", "q"], isRest: [true, false, false] },
-    { minDifficulty: 3, relSteps: [0, 1, 2, 3], durs: ["8t", "8t", "8t", "q"] },
-    { minDifficulty: 3, relSteps: [0, -1, -2, -3], durs: ["8t", "8t", "8t", "q"] },
-    { minDifficulty: 2, relSteps: [0, -1, -2], durs: ["8", "8", "q"], isRest: [true, false, true] },
-    { minDifficulty: 5, relSteps: [0, 1, -1, 0, -2, -1], durs: ["8t", "8t", "8t", "8t", "8t", "8t"] },
+    { minDifficulty: 2, relSteps: [0, 1, 1], durs: ["8", "8", "q"] },
+    { minDifficulty: 2, relSteps: [0, -1, -1], durs: ["8", "8", "q"] },
+    { minDifficulty: 2, relSteps: [0, -1, -1], durs: ["8", "8", "q"], isRest: [true, false, false] },
+    { minDifficulty: 3, relSteps: [0, 1, 1, 1], durs: ["8t", "8t", "8t", "q"] },
+    { minDifficulty: 3, relSteps: [0, -1, -1, -1], durs: ["8t", "8t", "8t", "q"] },
+    { minDifficulty: 2, relSteps: [0, -1, -1], durs: ["8", "8", "q"], isRest: [true, false, true] },
+    { minDifficulty: 5, relSteps: [0, 1, -2, 1, -2, 1], durs: ["8t", "8t", "8t", "8t", "8t", "8t"] },
   ],
   two_quarters_repeat: [
-    { minDifficulty: 3, relSteps: [0, 0, 0, 0], durs: ["8", "8", "8", "8"] },
+    { minDifficulty: 3, relSteps: [0, 2, -2, 2], durs: ["8", "8", "8", "8"] },
+    { minDifficulty: 3, relSteps: [0, 2, 0, 0], durs: ["8", "8", "8", "8"], isRest: [false, false, true, false] },
+    { minDifficulty: 5, relSteps: [0, 0, 0, 0, 0, 0], durs: ["8t", "8t", "8t", "8t", "8t", "8t"], isRest: [false, false, false, true, false, false] },
   ],
   half_note: [
     { minDifficulty: 3, relSteps: [0, 0], durs: ["q", "q"] },
-    { minDifficulty: 4, relSteps: [0, 1, 0, -1], durs: ["8", "8", "8", "8"] },
-    { minDifficulty: 5, relSteps: [0, 1, 0, -1, 0, 1], durs: ["8t", "8t", "8t", "8t", "8t", "8t"] },
+    { minDifficulty: 4, relSteps: [0, 1, -1, -1], durs: ["8", "8", "8", "8"] },
+    { minDifficulty: 5, relSteps: [0, 1, -1, -1, 1, 1], durs: ["8t", "8t", "8t", "8t", "8t", "8t"] },
   ],
 }
 
@@ -134,18 +137,6 @@ for (const [baseName, upgrades] of Object.entries(CELL_UPGRADES)) {
       )
     }
   }
-}
-
-/* ============================================================
-   Transformation Budget
-============================================================ */
-
-const TRANSFORM_BUDGET: Record<number, number> = {
-  1: 0,
-  2: 1,
-  3: 2,
-  4: 4,
-  5: 6,
 }
 
 /* ============================================================
@@ -213,7 +204,16 @@ export function generatePhrase(
         u => u.minDifficulty <= difficulty
       )
       if (!upgrades || upgrades.length === 0) return cell
-      return upgrades[upgrades.length - 1]
+      let weightedUpgrades = [];
+      upgrades.forEach(u => {
+        weightedUpgrades.push({
+          item: u,
+          w: 
+        })
+      })
+      return choiceWeighted<CellUpgrade>(rng, [
+        
+      ]
     })
   )
 
