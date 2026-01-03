@@ -137,25 +137,6 @@ for (const [baseName, upgrades] of Object.entries(CELL_UPGRADES)) {
 }
 
 /* ============================================================
-   Rhythmic Equivalence Classes
-============================================================ */
-
-type RhythmVariant = {
-  durs: Duration[]
-  minDifficulty: number
-  weight: number
-}
-
-const RHYTHM_EQUIV: Record<number, RhythmVariant[]> = {
-  48: [
-    { durs: ["q"], minDifficulty: 1, weight: 6 },
-    { durs: ["8", "8"], minDifficulty: 2, weight: 5 },
-    { durs: ["8t", "8t", "8t"], minDifficulty: 4, weight: 2 },
-    { durs: ["8", "8"], minDifficulty: 5, weight: 1 },
-  ],
-}
-
-/* ============================================================
    Transformation Budget
 ============================================================ */
 
