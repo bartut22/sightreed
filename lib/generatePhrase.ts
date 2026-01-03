@@ -73,12 +73,15 @@ type CellUpgrade = {
 const CELL_UPGRADES: Record<string, CellUpgrade[]> = {
   two_quarters_step: [
     { minDifficulty: 2, relSteps: [0, 2], durs: ["q", "q"] },
+    { minDifficulty: 2, relSteps: [0, 2], durs: ["q", "q"], isRest: [true, false]},
     { minDifficulty: 2, relSteps: [0, 1], durs: ["q.", "8"] },
     { minDifficulty: 2, relSteps: [0, -2], durs: ["q", "q"] },
     { minDifficulty: 2, relSteps: [0, 1, 2], durs: ["8", "8", "q"] },
     { minDifficulty: 2, relSteps: [0, -1, -2], durs: ["8", "8", "q"] },
+    { minDifficulty: 2, relSteps: [0, -1, -2], durs: ["8", "8", "q"], isRest: [true, false, false] },
     { minDifficulty: 3, relSteps: [0, 1, 2, 3], durs: ["8t", "8t", "8t", "q"] },
     { minDifficulty: 3, relSteps: [0, -1, -2, -3], durs: ["8t", "8t", "8t", "q"] },
+    { minDifficulty: 2, relSteps: [0, -1, -2], durs: ["8", "8", "q"], isRest: [true, false, true] },
     { minDifficulty: 5, relSteps: [0, 1, -1, 0, -2, -1], durs: ["8t", "8t", "8t", "8t", "8t", "8t"] },
   ],
   two_quarters_repeat: [
