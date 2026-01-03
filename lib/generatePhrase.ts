@@ -151,6 +151,32 @@ export type GenerationSettings = {
 }
 
 /* ============================================================
+   Debugging
+============================================================ */
+
+const DEBUG_UPGRADES = true
+
+function debugUpgrade(
+  bar: number,
+  cell: number,
+  base: string,
+  upgrade?: CellUpgrade,
+  difficulty?: number
+) {
+  if (!DEBUG_UPGRADES) return
+
+  if (!upgrade) {
+    console.debug(
+      `[upgrade] bar=${bar} cell=${cell} base=${base} → (no upgrade)`
+    )
+  } else {
+    console.debug(
+      `[upgrade] bar=${bar} cell=${cell} base=${base} → diff=${upgrade.minDifficulty} (gen diff=${difficulty})`
+    )
+  }
+}
+
+/* ============================================================
    Difficulty Weighting
 ============================================================ */
 
