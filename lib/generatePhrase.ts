@@ -151,6 +151,15 @@ export type GenerationSettings = {
 }
 
 /* ============================================================
+   Difficulty Weighting
+============================================================ */
+
+function difficultyWeight(current: number, upgrade: number): number {
+  const distance = current - upgrade
+  return Math.pow(0.5, distance)
+}
+
+/* ============================================================
    Main Generator
 ============================================================ */
 
@@ -204,16 +213,35 @@ export function generatePhrase(
         u => u.minDifficulty <= difficulty
       )
       if (!upgrades || upgrades.length === 0) return cell
-      let weightedUpgrades = [];
-      upgrades.forEach(u => {
-        weightedUpgrades.push({
-          item: u,
-          w: 
-        })
-      })
-      return choiceWeighted<CellUpgrade>(rng, [
-        
-      ]
+
+      const byDifficulty = new Map<number, CellUpgrade[]>()
+      for (const u of upgrades) {
+        if (!byDifficulty.has(u.minDifficulty)) {
+          byDifficulty.set(u.minDifficulty, [])
+        }
+        byDifficulty.get(u.minDifficulty)!.push(u)
+      }
+
+      let totalWeight = 0
+      const bucketWeights = new Map<number, number>()
+
+      for (const d of byDifficulty.keys()) {
+        const w = difficultyWeight(difficulty, d)
+        bucketWeights.set(d, w)
+        totalWeight += w
+      }
+
+      const weighted: { item: CellUpgrade; w: number }[] = []
+
+      for (const [d, bucket] of byDifficulty) {
+        const bucketProb = bucketWeights.get(d)! / totalWeight
+        const perUpgrade = bucketProb / bucket.length
+        for (const u of bucket) {
+          weighted.push({ item: u, w: perUpgrade })
+        }
+      }
+
+      return choiceWeighted(rng, weighted)
     })
   )
 
