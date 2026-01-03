@@ -37,12 +37,11 @@ export default function Home() {
     latencyMs: number
   } | null>(null)
 
-  // const [settings, setSettings] = useState<GenerationSettings>({
-  //   bars: 2,
-  //   difficulty: 2,
-  //   centerMidi: 72,
-  // })
-  const [settings, setSettings] = useState<GenerationSettings>()
+  const [settings, setSettings] = useState<GenerationSettings>({
+    bars: 2,
+    difficulty: 2,
+    centerMidi: 72,
+  })
   const [difficultyChanged, setDifficultyChanged] = useState<boolean>(false);
 
   const [tempo, setTempo] = useState(120)
@@ -200,12 +199,12 @@ export default function Home() {
   }
 
   const handleGenerate = (generateSeed: boolean = true) => {
-    if (!settings) return
+    if (!settings) return;
     const { seed, ...settingsWithoutSeed } = settings
     const gen = generatePhrase(generateSeed ? settingsWithoutSeed : settings)
     setGenerated(gen)
     setAssessment(null)
-
+    
     // Update URL with new seed
     const params = new URLSearchParams({
       seed: gen.seed.toString(),
@@ -214,6 +213,7 @@ export default function Home() {
       tempo: tempo.toString(),
     })
     window.history.replaceState({}, '', `?${params.toString()}`)
+    setDifficultyChanged(false);
   }
 
   useEffect(() => {
