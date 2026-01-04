@@ -4,6 +4,7 @@ export type Duration =
   | "8"      // Eighth
   | "q."     // Dotted quarter  
   | "8."     // Dotted eighth
+  | "16"     // Sixteenth
   | "8t"     // Eighth triplet
   | "h"      // Half note
   | "h."     // Dotted half
