@@ -147,7 +147,8 @@ export type GenerationSettings = {
   bars?: number
   difficulty?: 1 | 2 | 3 | 4 | 5
   centerMidi?: number
-  seed?: number
+  seed?: number,
+  tempo?: number
 }
 
 /* ============================================================
@@ -161,28 +162,67 @@ function debugUpgrade(
   cell: number,
   base: string,
   upgrade?: CellUpgrade,
-  difficulty?: number
+  predicted?: number
 ) {
   if (!DEBUG_UPGRADES) return
 
   if (!upgrade) {
     console.debug(
-      `[upgrade] bar=${bar} cell=${cell} base=${base} → (no upgrade)`
+      `[upgrade] bar=${bar} cell=${cell} base=${base} → (no upgrade)${(predicted ? ` (predDiff=${predicted.toFixed(2)})` : "")}`
     )
   } else {
     console.debug(
-      `[upgrade] bar=${bar} cell=${cell} base=${base} → diff=${upgrade.minDifficulty} (gen diff=${difficulty})`
+      `[upgrade] bar=${bar} cell=${cell} base=${base} → ${JSON.stringify(upgrade)} (predDiff=${predicted?.toFixed(2)})`
     )
   }
 }
 
 /* ============================================================
-   Difficulty Weighting
+   Difficulty Score
 ============================================================ */
 
-function difficultyWeight(current: number, upgrade: number): number {
-  const distance = current - upgrade
-  return Math.pow(0.5, distance)
+function cellDifficulty(cell: Cell | CellUpgrade): number {
+  let score = 0
+  for (let i = 0; i < cell.durs.length; i++) {
+    const dur = cell.durs[i]
+    const step = Math.abs(cell.relSteps[i] ?? 0)
+    const rest = cell.isRest?.[i] === true
+    let cellScore = 0;
+    let durScore = 0;
+    switch (dur) {
+      case "q":
+        durScore = 0.4; break
+      case "8":
+        durScore = 0.5; break
+      case "q.":
+        durScore = 0.6; break
+      case "8.":
+        durScore = 1; break
+      case "8t":
+        durScore = 0.8; break
+      case "h":
+        durScore = 0.3; break
+      case "h.":
+        durScore = 0.4; break;
+      default:
+        break;
+    }
+    cellScore += rest ? (i === 0) ? 2 * durScore : 1.5 * durScore : 1 // downbeat rests are more difficult than others, and all are more difficult than normal notes
+    if (!rest) cellScore += step * 0.1
+
+    function repeatedNotePenalty(durScore: number): number {
+      let a = 2/9;
+      let r = 0.2;
+      let logTerm = Math.log10((durScore - a) / (1 - a))
+      return r * logTerm + 0.5
+    }
+
+    // console.log(`Cellscore before penalty = ${cellScore}`)
+    if (step === 0 && !rest) cellScore -= repeatedNotePenalty(durScore)
+    // console.log(`Durscore = ${durScore} & penalty = ${repeatedNotePenalty(durScore)} & final cellscore = ${cellScore}`)
+    score += cellScore;
+  }
+  return score
 }
 
 /* ============================================================
@@ -232,42 +272,36 @@ export function generatePhrase(
   /* ========================================================
      PHASE 2: Cell Upgrades
   ======================================================== */
+  // Track remaining difficulty budget
+  const DIFFICULTY_TARGETS = { 1: 3.4, 2: 6.14, 3: 8.86, 4: 11.58, 5: 14.3, 6: 17.02 } // max difficulty is projected to be 17.02
+  let remainingBudget = DIFFICULTY_TARGETS[difficulty as 1 | 2 | 3 | 4 | 5]
 
-  const upgraded = skeleton.map(measure =>
-    measure.map(cell => {
-      const upgrades = CELL_UPGRADES[cell.name]?.filter(
-        u => u.minDifficulty <= difficulty
-      )
-      if (!upgrades || upgrades.length === 0) return cell
+  console.log(`Start upgrading...`)
+  const upgraded = skeleton.map((measure, m) =>
+    measure.map((cell, c) => {
+      const upgrades = CELL_UPGRADES[cell.name]?.filter(u => u.minDifficulty <= difficulty)
+      if (!upgrades || upgrades.length === 0) {
+        let diff = cellDifficulty(cell);
+        remainingBudget -= diff
+        // debugUpgrade(m, c, cell.name, undefined, diff)
+        return cell
+      }
 
-      const byDifficulty = new Map<number, CellUpgrade[]>()
+      // Weight upgrades based on predicted difficulty and remaining budget
+      // const adjRemainingBudget = remainingBudget * 120 / (settings.tempo ?? 120)
+      const weighted: { item: CellUpgrade; w: number; predicted: number }[] = []
       for (const u of upgrades) {
-        if (!byDifficulty.has(u.minDifficulty)) {
-          byDifficulty.set(u.minDifficulty, [])
-        }
-        byDifficulty.get(u.minDifficulty)!.push(u)
+        const pred = cellDifficulty(u)
+        let w = 1
+        // if (pred > adjRemainingBudget * 1.2) w *= 0.2
+        if (pred > remainingBudget * 1.2) w *= 0.2
+        weighted.push({ item: u, w, predicted: pred })
       }
 
-      let totalWeight = 0
-      const bucketWeights = new Map<number, number>()
-
-      for (const d of byDifficulty.keys()) {
-        const w = difficultyWeight(difficulty, d)
-        bucketWeights.set(d, w)
-        totalWeight += w
-      }
-
-      const weighted: { item: CellUpgrade; w: number }[] = []
-
-      for (const [d, bucket] of byDifficulty) {
-        const bucketProb = bucketWeights.get(d)! / totalWeight
-        const perUpgrade = bucketProb / bucket.length
-        for (const u of bucket) {
-          weighted.push({ item: u, w: perUpgrade })
-        }
-      }
-
-      return choiceWeighted(rng, weighted)
+      const chosenIdx = choiceWeighted(rng, weighted.map(w => ({ item: w, w: w.w })))
+      remainingBudget -= chosenIdx.predicted
+      // debugUpgrade(m, c, cell.name, chosenIdx.item, chosenIdx.predicted)
+      return chosenIdx.item
     })
   )
 
@@ -310,6 +344,19 @@ export function generatePhrase(
 
     measures.push({ timeSig: TS, events })
   }
+
+  // LOG OVERALL DIFFICULTY
+  const minTarget = DIFFICULTY_TARGETS[difficulty as 1 | 2 | 3 | 4 | 5] ?? 0
+  const maxTarget = DIFFICULTY_TARGETS[difficulty + 1 as 1 | 2 | 3 | 4 | 5] ?? DIFFICULTY_TARGETS[6]
+  const range = maxTarget - minTarget
+  const tempoMultiplier = (settings.tempo ?? 120) / 120
+  const lengthMultiplier = (settings.bars ?? 2) / 2
+
+  const overallDifficulty = upgraded.flat().reduce((sum, cell) => sum + cellDifficulty(cell), 0) * (tempoMultiplier) / (lengthMultiplier)
+  const adjDifficulty = (difficulty + ((overallDifficulty - minTarget) / (maxTarget - minTarget)))
+  console.log(
+    `[difficulty] overall difficulty ≈ ${overallDifficulty.toFixed(2)} (adjusted ${adjDifficulty.toFixed(2)}) (acceptable adjusted range: ${difficulty}–${difficulty + 1} compared to ${minTarget}-${maxTarget}) at ${settings.tempo ?? 120} BPM`
+  )
 
   return {
     score: { measures },

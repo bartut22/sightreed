@@ -129,7 +129,7 @@ export default function Home() {
     }
   }, [])
 
-  function getUrlParamsForGeneration(link: string): { tempo: number | null, urlSettings: GenerationSettings | null } {
+  function getUrlParamsForGeneration(link: string): GenerationSettings | null  {
     const params = new URLSearchParams(link)
     const seed = params.get('seed')
     const bars = params.get('bars')
@@ -142,27 +142,21 @@ export default function Home() {
         difficulty: Number(difficulty) as 1 | 2 | 3 | 4 | 5,
         centerMidi: 72,
         seed: Number(seed),
+        tempo: Number(tempoParam)
       }
 
-      return {
-        tempo: Number(tempoParam),
-        urlSettings: urlSettings
-      }
+      return urlSettings
     }
 
-    return { tempo: null, urlSettings: null }
+    return null
   }
 
   // Load exercise from URL on mount
   useEffect(() => {
-    const { tempo, urlSettings } = getUrlParamsForGeneration(window.location.search);
-
-    if (!tempo) {
-      setTempo(120)
-      // TODO: Show modal when tempo is not passed in URL params
-    } else setTempo(tempo);
-
+    const urlSettings = getUrlParamsForGeneration(window.location.search);
+    
     if (urlSettings) {
+      // TODO: Show modal when tempo is not passed in URL params
       setSettings(urlSettings);
       handleGenerate(false);
     }
@@ -170,7 +164,7 @@ export default function Home() {
 
   useEffect(() => {
     // Settings changed
-    const { tempo, urlSettings } = getUrlParamsForGeneration(window.location.search);
+    const urlSettings = getUrlParamsForGeneration(window.location.search);
     if (!urlSettings) return;
     console.log(`Current url: ${window.location.search}`)
     console.log(`Current settings: ${JSON.stringify(settings)}\nSettings from URL: ${JSON.stringify(urlSettings)}`);
