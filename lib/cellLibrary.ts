@@ -4,7 +4,8 @@ export type Cell = {
   name: string
   relSteps: number[]
   durs: Duration[]
-  isRest?: boolean[]
+  isRest?: boolean[],
+  minDifficulty?: number,
 }
 
 export type CellUpgrade = {
@@ -19,83 +20,100 @@ export const BASE_CELLS: Cell[] = [
     name: "stepUp",
     relSteps: [0, 1, 2],
     durs: ['q', 'q', 'q'],
+    minDifficulty: 1,
   },
   { 
     name: "stepDown",
     relSteps: [0, -1, -2],
     durs: ['q', 'q', 'q'],
+    minDifficulty: 1,
   },
   { 
     name: "neighbor",
     relSteps: [0, 1, 0],
     durs: ['q', 'q', 'q'],
+    minDifficulty: 1,
   },
   { 
     name: "skip3rd",
     relSteps: [0, 2, 0],
     durs: ['q', 'q', 'q'],
+    minDifficulty: 1,
   },
   { 
     name: "walkUp",
     relSteps: [0, 1, 2, 3],
     durs: ['8', '8', '8', '8'],
+    minDifficulty: 1,
   },
   { 
     name: "bounce",
     relSteps: [0, 2, 1, 2],
     durs: ['q', '8', '8', 'q'],
+    minDifficulty: 1,
   },
   { 
     name: "rockStep",
     relSteps: [0, -1, 1],
     durs: ['q', '8', '8'],
+    minDifficulty: 1,
   },
   { 
     name: "swing",
     relSteps: [0, 1, 2, 3],
     durs: ['q.', '8', 'q'],
+    minDifficulty: 2,
   },
   { 
     name: "breathe",
     relSteps: [0, 2, 0, 1],
     durs: ['q', 'q', 'q', 'q'],
     isRest: [false, false, true, false],
+    minDifficulty: 2,
   },
   { 
     name: "arpegUp",
     relSteps: [0, 2, 4],
     durs: ['q', 'q', 'h'],
+    minDifficulty: 2,
   },
   { 
     name: "cascade",
     relSteps: [4, 2, 1, 0],
     durs: ['8', '8', '8', '8'],
+    minDifficulty: 3,
   },
   { 
     name: "syncopate",
     relSteps: [0, 2, 1, 3],
     durs: ['8', 'q', '8', 'q'],
+    minDifficulty: 3,
   },
   { 
     name: "leap5th",
     relSteps: [0, 4, 2],
     durs: ['q', 'q', 'h'],
+    minDifficulty: 4,
   },
   { 
     name: "tripletRun",
     relSteps: [0, 1, 2],
     durs: ['8t', '8t', '8t'],
-  },
-  { 
-    name: "flurry",
-    relSteps: [0, 1, 2, 3, 2, 1],
-    durs: ['16', '16', '16', '16', 'q', 'q'],
-  },
-  { 
-    name: "archUp",
-    relSteps: [0, 2, 4, 2, 0],
-    durs: ['8', '8', 'q', '8', '8'],
-  },
+    minDifficulty: 4,
+},
+{ 
+  name: "archUp",
+  relSteps: [0, 2, 4, 2, 0],
+  durs: ['8', '8', 'q', '8', '8'],
+  minDifficulty: 4,
+},
+{ 
+  name: "flurry",
+  relSteps: [0, 1, 2, 3, 2, 1],
+  durs: ['16', '16', '16', '16', 'q', 'q'],
+  minDifficulty: 5,
+},
+  
 ];
 
 export const CELL_UPGRADES: Record<string, CellUpgrade[]> = {
