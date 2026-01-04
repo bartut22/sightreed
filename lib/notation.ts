@@ -58,6 +58,7 @@ export function durToTicks(d: Duration): number {
     case "8t": return TICKS_PER_TRIPLET
     case "h": return TICKS_PER_HALF
     case "h.": return TICKS_PER_DOTTED_HALF
+    default: return 0
   }
 }
 
