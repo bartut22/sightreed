@@ -48,11 +48,13 @@ export const TICKS_PER_DOTTED_QUARTER = 72
 export const TICKS_PER_DOTTED_EIGHTH = 36
 export const TICKS_PER_HALF = 96
 export const TICKS_PER_DOTTED_HALF = 144
+export const TICKS_PER_SIXTEENTH = 12
 
 export function durToTicks(d: Duration): number {
   switch (d) {
     case "q": return TICKS_PER_QUARTER
     case "8": return TICKS_PER_EIGHTH
+    case "16": return TICKS_PER_SIXTEENTH
     case "q.": return TICKS_PER_DOTTED_QUARTER
     case "8.": return TICKS_PER_DOTTED_EIGHTH
     case "8t": return TICKS_PER_TRIPLET
