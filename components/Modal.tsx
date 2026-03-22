@@ -1,7 +1,5 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
-
 export default function Modal({children}: {children: React.ReactNode}) {
     return (
         <div

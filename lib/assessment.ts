@@ -1,5 +1,5 @@
 import type { TickState } from "./performanceTracker"
-import type { Score } from "./notation"
+import type { PitchSpelling, Score } from "./notation"
 import { durToTicks, pitchToMidi } from "./notation"
 
 export type AssessmentResult = {
@@ -73,7 +73,7 @@ export function assessPerformance(
     }
   }
 
-  let scoreMultiplier = scoreMultiplierForDifficulty(difficulty)
+  const scoreMultiplier = scoreMultiplierForDifficulty(difficulty)
 
   const totalTicks = stateHistory.length
   const correctTicks = stateHistory.filter(s => s.isCorrect).length
@@ -100,7 +100,7 @@ export function assessPerformance(
   for (const measure of score.measures) {
     for (const event of measure.events) {
       if (event.kind === "note") {
-        const noteEvent = event as { pitch: any, tiedFrom?: boolean }
+        const noteEvent = event as { pitch: PitchSpelling | null, tiedFrom?: boolean }
         const duration = durToTicks(event.dur)
 
         if (!noteEvent.tiedFrom) {
@@ -164,13 +164,13 @@ export function assessPerformance(
   let notesCorrect = 0
 
   for (const expectedNote of expectedNotes) {
-    console.log(`Expected note ${expectedNote.pitch} from tick ${expectedNote.startTick} to ${expectedNote.endTick}`)
+    // console.log(`Expected note ${expectedNote.pitch} from tick ${expectedNote.startTick} to ${expectedNote.endTick}`)
     const SEARCH_WINDOW = 48
 
     let firstCorrectTick: number | null = null
     let correctTicks = 0
     let totalTicksInRange = 0
-    let pitchDict: { [tick: number]: number | null } = {}
+    const pitchDict: { [tick: number]: number | null } = {}
 
     for (const state of stateHistory) {
       if (state.tick >= expectedNote.startTick - SEARCH_WINDOW &&
@@ -192,7 +192,7 @@ export function assessPerformance(
       }
     }
 
-    console.log(`Expected Note ${expectedNote.pitch} from tick ${expectedNote.startTick} to ${expectedNote.endTick}: Player pitches in range:`, JSON.stringify(pitchDict))
+    // console.log(`Expected Note ${expectedNote.pitch} from tick ${expectedNote.startTick} to ${expectedNote.endTick}: Player pitches in range:`, JSON.stringify(pitchDict))
 
     if (firstCorrectTick !== null) {
       const timingOffset = firstCorrectTick - expectedNote.startTick

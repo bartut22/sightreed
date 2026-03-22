@@ -24,3 +24,11 @@ body {
   color: var(--foreground);
   /* font-family: Helvetica, sans-serif; */
 }
+
+.abc-staff-theme .abcjs-staff,
+.abc-staff-theme > .abcjs-bar,
+.abc-staff-theme svg path.abcjs-staff,
+.abc-staff-theme svg line.abcjs-staff,
+.abc-staff-theme .abcjs-staff > path {
+  fill: #999 !important;
+}

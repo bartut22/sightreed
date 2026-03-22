@@ -44,7 +44,7 @@ export default function AssessmentResults({ result, onClose }: Props) {
     return "Dragging"
   }
 
-  const overallGrade = getGrade(result.overallScore)
+  const overallGrade = getGrade(Math.round(result.overallScore))
   const timingColor = getTimingColor(result.timing.tendency, result.timing.description)
   const timingIcon = getTimingIcon(result.timing.tendency, result.timing.description)
   const timingLabel = getTimingLabel(result.timing.tendency, result.timing.description)
@@ -68,9 +68,9 @@ export default function AssessmentResults({ result, onClose }: Props) {
       >
         <h2 style={{ marginTop: 0, textAlign: "center" }}>Performance Assessment</h2>
 
-        <div class="text-center p-6 bg-gray-900 rounded-lg mb-6" >
+        <div className="text-center p-6 bg-gray-900 rounded-lg mb-6" >
           <div style={{ color: overallGrade.color }} className="text-7xl font-bold">
-            {result.overallScore}%
+            {Math.round(result.overallScore)}%
           </div>
           <div style={{ color: overallGrade.color}} className="text-4xl mt-2">
             Grade: {overallGrade.letter}
@@ -99,17 +99,17 @@ export default function AssessmentResults({ result, onClose }: Props) {
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div className="p-4 bg-gray-900 rounded-lg">
             <div className="text-xs text-gray-500 mb-1">Pitch Accuracy</div>
-            <div className="text-2xl font-semibold">{result.pitchAccuracy}%</div>
+            <div className="text-2xl font-semibold">{Math.round(result.pitchAccuracy)}%</div>
           </div>
 
           <div className="p-4 bg-gray-900 rounded-lg">
             <div className="text-xs text-gray-500 mb-1">Rhythm Accuracy</div>
-            <div className="text-2xl font-semibold">{result.rhythmAccuracy}%</div>
+            <div className="text-2xl font-semibold">{Math.round(result.rhythmAccuracy)}%</div>
           </div>
 
           <div className="p-4 bg-gray-900 rounded-lg">
             <div className="text-xs text-gray-500 mb-1">Tone Quality</div>
-            <div className="text-2xl font-semibold">{result.toneQuality}%</div>
+            <div className="text-2xl font-semibold">{Math.round(result.toneQuality)}%</div>
           </div>
 
           <div className="p-4 bg-gray-900 rounded-lg">

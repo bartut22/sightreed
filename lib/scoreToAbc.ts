@@ -1,4 +1,4 @@
-import type { Score, Event, NoteEvent, RestEvent, PitchSpelling, Duration, Measure } from "./notation"
+import type { Score, Event, PitchSpelling, Duration, Measure } from "./notation"
 import { durToTicks, TICKS_PER_QUARTER } from "./notation"
 
 const BASE_UNIT = 8 // L:1/8
@@ -168,18 +168,16 @@ function measureToAbc(measure: Measure, isLast: boolean): string {
  * @param tempo  - BPM (quarter note = tempo) for Q: field
  * @param barsPerLine - Number of bars per line
  */
-export function scoreToAbc(score: Score, title?: string, tempo?: number, barsPerLine?: number): string {
+export function scoreToAbc(score: Score): string {
   const firstMeasure = score.measures[0]
   const ts = firstMeasure?.timeSig ?? { beats: 4, beatUnit: 4 }
 
   const header = [
     "X:1",
-    `T:${title ?? ""}`,
     `M:${ts.beats}/${ts.beatUnit}`,
     `L:1/${BASE_UNIT}`,
-    tempo ? `Q:1/4=${tempo}` : "",
-    barsPerLine ? `%%barsperline ${barsPerLine}` : "",
-    `%%stretchlast yes`,
+    `%%stretchlast 0.6`,
+    `%%equalbars 1`,
     "K:C",
   ].filter(Boolean).join("\n")
 

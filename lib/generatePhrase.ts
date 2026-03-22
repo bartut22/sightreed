@@ -3,12 +3,12 @@ import {
   Event,
   Measure,
   Score,
-  durToTicks,
+  // durToTicks,
   totalTicks,
   measureTicks,
   midiToPitchSpelling,
-  NoteEvent,
-  pitchToMidi
+  // NoteEvent,
+  // pitchToMidi
 } from "./notation"
 
 type RNG = () => number
@@ -23,15 +23,15 @@ function mulberry32(seed: number): RNG {
   }
 }
 
-function choiceWeighted<T>(rng: RNG, items: { item: T; w: number }[]): T {
-  const total = items.reduce((s, i) => s + i.w, 0)
-  let r = rng() * total
-  for (const it of items) {
-    r -= it.w
-    if (r <= 0) return it.item
-  }
-  return items[items.length - 1].item
-}
+// function choiceWeighted<T>(rng: RNG, items: { item: T; w: number }[]): T {
+//   const total = items.reduce((s, i) => s + i.w, 0)
+//   let r = rng() * total
+//   for (const it of items) {
+//     r -= it.w
+//     if (r <= 0) return it.item
+//   }
+//   return items[items.length - 1].item
+// }
 
 /* ============================================================
    Time / Scale
@@ -56,13 +56,13 @@ const DIFFICULTY_RANGES: Record<number, { minMidi: number; maxMidi: number }> = 
   5: { minMidi: 48, maxMidi: 96 },
 };
 
-const MAX_LEAP: Record<number, number> = {
-  1: 5,
-  2: 7,
-  3: 12,
-  4: 15,
-  5: 18,
-};
+// const MAX_LEAP: Record<number, number> = {
+//   1: 5,
+//   2: 7,
+//   3: 12,
+//   4: 15,
+//   5: 18,
+// };
 
 // Targets for overall difficulty buckets. These are interpreted in the
 // same units as `overallDifficulty` at the bottom of this file.
@@ -206,9 +206,9 @@ function debugUpgrade(
 ============================================================ */
 
 function repeatedNotePenalty(durScore: number): number {
-  let a = 2 / 9;
-  let r = 0.2;
-  let logTerm = Math.log10((durScore - a) / (1 - a))
+  const a = 2 / 9;
+  const r = 0.2;
+  const logTerm = Math.log10((durScore - a) / (1 - a))
   return (r * logTerm + 0.5)
 }
 
@@ -510,7 +510,7 @@ function generatePhraseOnce(
 
     for (const cell of upgraded[m]) {
       const { minMidi, maxMidi } = DIFFICULTY_RANGES[difficulty];
-      const maxLeap = MAX_LEAP[difficulty];
+      // const maxLeap = MAX_LEAP[difficulty];
 
       for (let i = 0; i < cell.durs.length; i++) {
         const dur = cell.durs[i];
@@ -519,7 +519,7 @@ function generatePhraseOnce(
         if (isRest) {
           events.push({ kind: "rest", dur });
         } else {
-          let relStep = cell.scaleDegs[i] ?? 0;
+          const relStep = cell.scaleDegs[i] ?? 0;
           let increment: number;
 
           if (relStep >= 0) {
@@ -567,17 +567,17 @@ function generatePhraseOnce(
 
 
   // 🔍 DEBUG: Log all intermediate values
-  console.log('[difficulty] Debug values:', {
-    difficulty,
-    minTarget,
-    maxTarget,
-    range: maxTarget - minTarget,
-    overallDifficulty,
-    tempoMultiplier,
-    lengthMultiplier,
-    totalCells: upgraded.flat().length,
-    rawSum: upgraded.flat().reduce((sum, cell) => sum + cellDifficulty(cell), 0)
-  })
+  // console.log('[difficulty] Debug values:', {
+  //   difficulty,
+  //   minTarget,
+  //   maxTarget,
+  //   range: maxTarget - minTarget,
+  //   overallDifficulty,
+  //   tempoMultiplier,
+  //   lengthMultiplier,
+  //   totalCells: upgraded.flat().length,
+  //   rawSum: upgraded.flat().reduce((sum, cell) => sum + cellDifficulty(cell), 0)
+  // })
 
   // Handle edge case where range is 0 (difficulty 5 or 6)
   let adjDifficulty: number
@@ -711,31 +711,31 @@ export function generatePhrase(
 }
 
 // Dev-only helper to sample difficulty distributions for target tuning.
-function sampleDifficultyDistribution(
-  difficulty: 1 | 2 | 3 | 4 | 5,
-  samples = 100,
-  baseSettings: GenerationSettings = {}
-) {
-  const ENABLE_CALIBRATION = false
-  if (!ENABLE_CALIBRATION) return
+// function sampleDifficultyDistribution(
+//   difficulty: 1 | 2 | 3 | 4 | 5,
+//   samples = 100,
+//   baseSettings: GenerationSettings = {}
+// ) {
+//   const ENABLE_CALIBRATION = false
+//   if (!ENABLE_CALIBRATION) return
 
-  const values: number[] = []
-  for (let i = 0; i < samples; i++) {
-    const seed = i
-    const res = generatePhraseOnce({ ...baseSettings, difficulty, seed })
-    values.push(res.adjDifficulty)
-  }
+//   const values: number[] = []
+//   for (let i = 0; i < samples; i++) {
+//     const seed = i
+//     const res = generatePhraseOnce({ ...baseSettings, difficulty, seed })
+//     values.push(res.adjDifficulty)
+//   }
 
-  const sorted = [...values].sort((a, b) => a - b)
-  const min = sorted[0]
-  const max = sorted[sorted.length - 1]
-  const median = sorted[Math.floor(sorted.length / 2)]
+//   const sorted = [...values].sort((a, b) => a - b)
+//   const min = sorted[0]
+//   const max = sorted[sorted.length - 1]
+//   const median = sorted[Math.floor(sorted.length / 2)]
 
-  console.log('[difficulty-calibration]', {
-    difficulty,
-    samples,
-    min,
-    median,
-    max,
-  })
-}
+//   console.log('[difficulty-calibration]', {
+//     difficulty,
+//     samples,
+//     min,
+//     median,
+//     max,
+//   })
+// }

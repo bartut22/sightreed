@@ -46,7 +46,7 @@ export function CellPreviewRow({
 
     const uniqueDurs = Array.from(new Set(cell.durs))
     const rhythmBadges = uniqueDurs.map((d: Duration, i) => {
-        let base = durSymbols[d]
+        const base = durSymbols[d]
         return <Badge key={i} text={base} color="#0ff" />
     }).filter(Boolean)
 
