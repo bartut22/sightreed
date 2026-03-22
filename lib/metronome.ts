@@ -40,7 +40,7 @@ export class Metronome {
   }
 
   // Original count-in mode (keep for compatibility)
-  start(tempo: number, beats: number, onComplete: () => void, onBeat?: (beat: number, isBeatOne: boolean) => void) {
+  start(tempo: number, beats: number, onComplete: () => void, onBeat?: (beat: number, isBeatOne: boolean) => void, startOffsetSeconds: number = 0.1) {
     this.stop(); // Clear any existing
     this.onBeat = onBeat;
     this.scheduledClicks = [];
@@ -48,7 +48,7 @@ export class Metronome {
     this.isActive = true;
 
     const secondsPerBeat = 60 / tempo;
-    this.startTime = this.audioContext.currentTime + 0.1;
+    this.startTime = this.audioContext.currentTime + startOffsetSeconds;
 
     for (let i = 0; i < beats; i++) {
       const time = this.startTime + i * secondsPerBeat;

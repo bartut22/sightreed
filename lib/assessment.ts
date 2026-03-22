@@ -41,8 +41,6 @@ export function scoreMultiplierForDifficulty(difficulty: number | undefined): nu
 
 export function assessPerformance(
   stateHistory: TickState[],
-  baselineCentroid: number,
-  baselineHNR: number,
   score: Score,
   difficulty: 1 | 2 | 3 | 4 | 5 | undefined,
   tempo: number = 120

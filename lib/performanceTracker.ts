@@ -7,10 +7,94 @@ export type TickState = {
   expectedKind: "note" | "rest" | null
   expectedPitch: number | null // MIDI
   actualPitch: number | null // MIDI
+  actualHz: number | null
   actualRMS: number
   isCorrect: boolean
   centroid?: number
   hnr?: number
+}
+
+export type PlayedNoteBlock = {
+  startTick: number
+  endTick: number
+  midi: number
+}
+
+export function buildPlayedBlocksFromStateHistory(stateHistory: TickState[]): PlayedNoteBlock[] {
+  const actualNotes: PlayedNoteBlock[] = []
+  const RMS_THRESHOLD = 0.02
+  const RMS_ONSET_MIN = 0.035
+  const RMS_RISE_THRESHOLD = 0.015
+  const PITCH_TOLERANCE = 1
+  const GAP_TICKS = 6
+  const MIN_NOTE_GAP = 4
+  const MIN_NOTE_TICKS = 6
+  let current: PlayedNoteBlock | null = null
+  let lastSoundTick = 0
+  let gapTicks = 0
+
+  for (let i = 0; i < stateHistory.length; i++) {
+    const curr = stateHistory[i]
+    const prev = i > 0 ? stateHistory[i - 1] : null
+    const hasPitch = curr.actualPitch !== null && curr.actualRMS > RMS_THRESHOLD
+    const rmsRise = prev ? (curr.actualRMS - prev.actualRMS) : 0
+    const onset =
+      curr.actualRMS >= RMS_ONSET_MIN &&
+      rmsRise >= RMS_RISE_THRESHOLD &&
+      prev !== null &&
+      (prev.actualPitch === null || prev.actualRMS <= RMS_THRESHOLD || prev.actualPitch === curr.actualPitch)
+
+    if (hasPitch && curr.actualPitch !== null) {
+      if (!current) {
+        const lastNote = actualNotes[actualNotes.length - 1]
+        if (!lastNote || curr.tick - lastNote.startTick >= MIN_NOTE_GAP) {
+          current = {
+            startTick: curr.tick,
+            endTick: curr.tick,
+            midi: curr.actualPitch
+          }
+        }
+      } else if (Math.abs(curr.actualPitch - current.midi) <= PITCH_TOLERANCE) {
+        if (onset && curr.tick - current.startTick >= MIN_NOTE_GAP) {
+          if (current.endTick - current.startTick + 1 >= MIN_NOTE_TICKS) {
+            actualNotes.push(current)
+          }
+          current = {
+            startTick: curr.tick,
+            endTick: curr.tick,
+            midi: curr.actualPitch
+          }
+        } else {
+          current.endTick = curr.tick
+        }
+      } else {
+        if (current.endTick - current.startTick + 1 >= MIN_NOTE_TICKS) {
+          actualNotes.push(current)
+        }
+        current = {
+          startTick: curr.tick,
+          endTick: curr.tick,
+          midi: curr.actualPitch
+        }
+      }
+      lastSoundTick = curr.tick
+      gapTicks = 0
+    } else if (current) {
+      gapTicks = curr.tick - lastSoundTick
+      if (gapTicks > GAP_TICKS) {
+        if (current.endTick - current.startTick + 1 >= MIN_NOTE_TICKS) {
+          actualNotes.push(current)
+        }
+        current = null
+      }
+    }
+  }
+
+  if (current && current.endTick - current.startTick + 1 >= MIN_NOTE_TICKS) {
+    actualNotes.push(current)
+  }
+
+  return actualNotes
 }
 
 export class PerformanceTracker {
@@ -24,34 +108,22 @@ export class PerformanceTracker {
 
   // Tick-based tracking
   private currentTick = 0
-  private lastUpdateTime = 0
   private msPerTick: number
-
-  // ✅ TWO-STAGE LATENCY COMPENSATION
-  private calibratedLatencyMs: number // From calibration tap test
-  private calibratedLatencyTicks: number // Converted to ticks
-  private firstNoteOffsetTicks: number | null = null // Per-performance fine-tuning
-  private firstSoundDetectedTick: number | null = null
 
   // State history for analysis
   private stateHistory: TickState[] = []
 
-  constructor(score: Score, tempo: number, transposeSemitones: number = 0, calibratedLatencyMs: number = 0) {
+  constructor(score: Score, tempo: number, transposeSemitones: number = 0) {
     this.score = score
     this.tempo = tempo
     this.msPerTick = (60000 / tempo) / 48 // 48 ticks per quarter note
     this.transposeSemitones = transposeSemitones
-    this.calibratedLatencyMs = calibratedLatencyMs
-    this.calibratedLatencyTicks = Math.round(calibratedLatencyMs / this.msPerTick)
   }
 
   start() {
     this.performanceStartTime = performance.now()
     this.hasStarted = true
     this.currentTick = 0
-    this.lastUpdateTime = 0
-    this.firstNoteOffsetTicks = null
-    this.firstSoundDetectedTick = null
     this.stateHistory = []
   }
 
@@ -70,42 +142,9 @@ export class PerformanceTracker {
 
     this.currentTick = newTick
 
-    // ✅ TWO-STAGE LATENCY COMPENSATION
-    // Stage 1: Apply calibrated latency (from tap test)
-    let adjustedTick = this.currentTick - this.calibratedLatencyTicks
-
-    // Stage 2: First-note detection (fine-tune per performance)
-    if (this.firstNoteOffsetTicks === null && pitch !== null && rms > 0.02) {
-      this.firstSoundDetectedTick = adjustedTick
-
-      const SNAP_THRESHOLD = 30 // ~375ms at 120 BPM
-
-      // If first sound is within threshold of score start, snap to beat 1
-      if (adjustedTick >= 0 && adjustedTick <= SNAP_THRESHOLD) {
-        this.firstNoteOffsetTicks = adjustedTick
-        console.log(`🎯 Two-stage latency:`)
-        console.log(`  - Calibrated: ${this.calibratedLatencyMs}ms (${this.calibratedLatencyTicks} ticks)`)
-        console.log(`  - First-note: ${this.firstNoteOffsetTicks} ticks`)
-        console.log(`  - Total: ${this.calibratedLatencyTicks + this.firstNoteOffsetTicks} ticks (${((this.calibratedLatencyTicks + this.firstNoteOffsetTicks) * this.msPerTick).toFixed(0)}ms)`)
-      } else if (adjustedTick < 0) {
-        // Started before expected (unlikely but possible)
-        this.firstNoteOffsetTicks = 0
-        console.log(`⏱️ Started early: adjustedTick=${adjustedTick}`)
-      } else {
-        // Started significantly late - don't compensate
-        this.firstNoteOffsetTicks = 0
-        console.log(`⏰ Late entry at tick ${adjustedTick}, no additional compensation`)
-      }
-    }
-
-    // ✅ Apply both compensations
-    const correctedTick = this.firstNoteOffsetTicks !== null
-      ? adjustedTick - this.firstNoteOffsetTicks
-      : adjustedTick
-
     // Get expected state at the CORRECTED tick
-    const expectedState = this.getExpectedStateAtTick(correctedTick)
-    const actualPitchMidi = pitch !== null ? this.hzToMidi(pitch) + this.transposeSemitones : null
+    const expectedState = this.getExpectedStateAtTick(this.currentTick)
+    const actualPitchMidi = pitch !== null ? this.hzToMidi(pitch) - this.transposeSemitones : null
 
     // Determine if correct
     let isCorrect = false
@@ -121,11 +160,12 @@ export class PerformanceTracker {
 
     // Record this tick's state (using corrected tick)
     this.stateHistory.push({
-      tick: correctedTick,
+      tick: this.currentTick,
       rawTick: this.currentTick,
       expectedKind: expectedState.kind,
       expectedPitch: expectedState.pitch,
       actualPitch: actualPitchMidi,
+      actualHz: pitch,
       actualRMS: rms,
       isCorrect,
       centroid: this.currentCentroid,
@@ -189,6 +229,15 @@ export class PerformanceTracker {
     const noteStates = this.stateHistory.filter(s => s.expectedKind === "note")
     if (noteStates.length === 0) return 0
     const correct = noteStates.filter(s => s.isCorrect).length
+
+    console.log('[DEBUG getPitchAccuracy]', {
+      totalTicks: this.stateHistory.length,
+      noteStateTicks: noteStates.length,        // 0 here = score never matched ticks
+      correctTicks: correct,
+      sampleNoteState: noteStates[0],           // inspect first note tick
+      sampleActualPitch: noteStates[0]?.actualPitch,   // should be a MIDI number
+    });
+
     return correct / noteStates.length
   }
 

@@ -7,15 +7,18 @@ import { StaffConfig, DrawItem } from "./types"
 export function calculateNotePositions(
   score: Score,
   config: StaffConfig,
-  canvasWidth: number
+  canvasWidth: number,
+  x0?: number,
+  tickW?: number,
+  yOffset: number = 0
 ): DrawItem[] {
   const measureTicks = config.measureTicks ?? (TICKS_PER_QUARTER * 4)
   const totalTicks = score.measures.length * measureTicks
-  
-  const usableW = canvasWidth - config.leftPad - config.rightPad - 
+
+  const usableW = canvasWidth - config.leftPad - config.rightPad -
                   (config.clefPad ?? 0) - (config.afterClefPad ?? 0)
-  const x0 = config.leftPad + (config.clefPad ?? 0) + (config.afterClefPad ?? 0)
-  const tickW = usableW / totalTicks
+  const calculatedX0 = x0 ?? (config.leftPad + (config.clefPad ?? 0) + (config.afterClefPad ?? 0))
+  const calculatedTickW = tickW ?? (usableW / totalTicks)
 
   let globalTick = 0
   const allItems: DrawItem[] = []
@@ -28,7 +31,7 @@ export function calculateNotePositions(
       const e = measure.events[ei]
       const durTicks = durToTicks(e.dur)
       const absoluteTick = mi * measureTicks + localTick
-      const x = x0 + (absoluteTick + durTicks / 2) * tickW
+      const x = calculatedX0 + (absoluteTick + durTicks / 2) * calculatedTickW
 
       allItems.push({
         event: e,

@@ -1,4 +1,4 @@
-import { StaffConfig, RenderState, DrawItem } from "./types"
+import { StaffConfig, RenderState, DrawItem, LineLayout } from "./types"
 import {
     drawStaffLines,
     drawClef,
@@ -33,10 +33,17 @@ import {
     getAccidentalFromPitch,
     stepToY as calculateStepY
 } from "./music"
-import { TICKS_PER_QUARTER, NoteEvent } from "../notation"
+import { TICKS_PER_QUARTER, NoteEvent, Score } from "../notation"
+
+// Global spacing and layout constants
+const SCALE = 1  // Rendering scale multiplier (0.5 = half size, 2.0 = double size)
+const BASE_MEASURES_PER_800PX = 2  // Base measures per 800px at scale 1.0
+const LINE_GAP = 88  // Space between staves in pixels -- 20px is one staff line
+const TITLE_HEIGHT = 40  // Space reserved for title
+const CANVAS_BOTTOM_PADDING = 20  // Space at bottom of canvas
 
 export const DEFAULT_PHRASE_STAFF_CONFIG: StaffConfig = {
-    staffTop: 160,
+    staffTop: 120,
     lineSpacing: 18,
     leftPad: 50,
     rightPad: 30,
@@ -57,7 +64,8 @@ export const DEFAULT_PHRASE_STAFF_CONFIG: StaffConfig = {
     accidentalFont: "14px sans-serif",
 
     primaryColor: "white",
-    correctNoteColor: "#22c55e",
+    wrongPitchColor: "#eab308",
+    correctNoteColor: "#4ecb41",
     incorrectNoteColor: "#ef4444",
     playheadColor: "rgba(34, 197, 94, 0.6)",
 
@@ -84,6 +92,7 @@ export const DEFAULT_PITCH_STAFF_CONFIG: StaffConfig = {
     accidentalFont: "16px sans-serif",
 
     primaryColor: "white",
+    wrongPitchColor: "white",
     correctNoteColor: "white",
     incorrectNoteColor: "white",
     playheadColor: "white",
@@ -113,207 +122,342 @@ export class StaffRenderer {
     }
 
     /**
+     * Apply SCALE multiplier to configuration dimensions
+     */
+    private getScaledConfig(): StaffConfig {
+        return {
+            ...this.config,
+            staffTop: this.config.staffTop * SCALE,
+            lineSpacing: this.config.lineSpacing * SCALE,
+            leftPad: this.config.leftPad * SCALE,
+            rightPad: this.config.rightPad * SCALE,
+            clefPad: (this.config.clefPad ?? 0) * SCALE,
+            afterClefPad: (this.config.afterClefPad ?? 0) * SCALE,
+            noteHeadWidth: this.config.noteHeadWidth * SCALE,
+            noteHeadHeight: this.config.noteHeadHeight * SCALE,
+            stemLength: this.config.stemLength * SCALE,
+            stemWidth: this.config.stemWidth * SCALE,
+            ledgerLineExtension: this.config.ledgerLineExtension * SCALE,
+            clefFont: this.scaleFont(this.config.clefFont),
+            titleFont: this.scaleFont(this.config.titleFont),
+            restFont: this.scaleFont(this.config.restFont),
+            tripletFont: this.scaleFont(this.config.tripletFont),
+            accidentalFont: this.scaleFont(this.config.accidentalFont),
+        }
+    }
+
+    /**
+     * Scale font size by SCALE multiplier
+     */
+    private scaleFont(fontStr: string): string {
+        return fontStr.replace(/(\d+)px/, (match, size) => {
+            return `${Math.round(parseInt(size) * SCALE)}px`
+        })
+    }
+
+    /**
      * Convert staff step to Y coordinate
      */
-    private stepToY(step: number): number {
+    private stepToY(step: number, staffTop: number, lineSpacing: number): number {
         const bottomLineStep = midiToDiatonicStep(this.config.trebleBottomLineMidi)
-        return calculateStepY(step, bottomLineStep, this.config.staffTop, this.config.lineSpacing)
+        return calculateStepY(step, bottomLineStep, staffTop, lineSpacing)
+    }
+
+    /**
+     * Calculate how measures should be distributed across multiple lines
+     */
+    private calculateLineLayout(score: Score, measureTicks: number): LineLayout[] {
+        // Measures per line is inversely proportional to scale
+        // At scale 1.0: 2 measures per 800px
+        // At scale 0.5: 4 measures per 800px (smaller rendering, more fits)
+        // At scale 2.0: 1 measure per 800px (larger rendering, less fits)
+        let measuresPerLine = Math.max(1, Math.floor((BASE_MEASURES_PER_800PX / SCALE) * (this.canvas.width / 800)))
+
+        // Use scaled spacing for consistent layout calculations
+        const scaledLineSpacing = this.config.lineSpacing * SCALE
+        const scaledLineGap = LINE_GAP * SCALE
+        const staffHeight = 4 * scaledLineSpacing  // Height of 5-line staff
+        const lineHeight = staffHeight + scaledLineGap
+
+        const lines: LineLayout[] = []
+        let currentMeasureIndex = 0
+        let lineNumber = 0
+
+        while (currentMeasureIndex < score.measures.length) {
+            const endMeasureIndex = Math.min(
+                currentMeasureIndex + measuresPerLine - 1,
+                score.measures.length - 1
+            )
+
+            lines.push({
+                lineNumber,
+                startMeasureIndex: currentMeasureIndex,
+                endMeasureIndex,
+                yOffset: lineNumber * lineHeight
+            })
+
+            currentMeasureIndex = endMeasureIndex + 1
+            lineNumber++
+        }
+
+        return lines
     }
 
     /**
      * Render the full musical score
      */
     render(state: RenderState): void {
+        // Apply SCALE multiplier to all config dimensions
+        const config = this.getScaledConfig()
+        const scaledLineGap = LINE_GAP * SCALE
+
+        const measureTicks = config.measureTicks ?? (TICKS_PER_QUARTER * 4)
+        const lineLayouts = this.calculateLineLayout(state.score, measureTicks)
+
+        // Calculate new canvas height dynamically
+        const titleHeight = state.title ? TITLE_HEIGHT : 0
+        const staffHeight = 4 * config.lineSpacing
+        const lineHeight = staffHeight + scaledLineGap
+        const newHeight = titleHeight + config.staffTop + lineLayouts.length * lineHeight + CANVAS_BOTTOM_PADDING
+        this.canvas.height = newHeight
+
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
 
-        const measureTicks = this.config.measureTicks ?? (TICKS_PER_QUARTER * 4)
-        const totalTicks = state.score.measures.length * measureTicks
-
-        // 1. Draw title
+        // 1. Draw title only once
         if (state.title) {
-            drawTitle(this.ctx, state.title, this.config)
+            drawTitle(this.ctx, state.title, config)
         }
 
-        // 2. Draw staff lines
-        drawStaffLines(this.ctx, this.config, this.canvas.width)
+        // Calculate vertical offset to account for title and top padding
+        const initialYOffset = titleHeight
 
-        // 3. Draw clef
-        drawClef(this.ctx, this.config)
+        // 2. For each line
+        for (const lineLayout of lineLayouts) {
+            const measuresOnLine = lineLayout.endMeasureIndex - lineLayout.startMeasureIndex + 1
+            const totalTicksOnLine = measuresOnLine * measureTicks
 
-        // Calculate layout
-        const usableW = this.canvas.width - this.config.leftPad - this.config.rightPad -
-            (this.config.clefPad ?? 0) - (this.config.afterClefPad ?? 0)
-        const x0 = this.config.leftPad + (this.config.clefPad ?? 0) + (this.config.afterClefPad ?? 0)
-        const tickW = usableW / totalTicks
+            // Calculate layout for this line's measures
+            const usableW = this.canvas.width - config.leftPad - config.rightPad -
+                (config.clefPad ?? 0) - (config.afterClefPad ?? 0)
+            const x0 = config.leftPad + (config.clefPad ?? 0) + (config.afterClefPad ?? 0)
+            const tickW = usableW / totalTicksOnLine
 
-        // 4. Draw bar lines
-        drawBarLines(this.ctx, state.score.measures.length, measureTicks, x0, tickW, this.config)
+            // Adjust yOffset to account for title and initial padding
+            const adjustedYOffset = initialYOffset + lineLayout.yOffset
 
-        // 5. Calculate all note positions
-        const allItems = calculateNotePositions(state.score, this.config, this.canvas.width)
+            // Draw staff lines at the correct y position
+            drawStaffLines(this.ctx, config, this.canvas.width, adjustedYOffset)
 
-        // 6. Draw rests and notes
-        const trebleBottomLineStep = midiToDiatonicStep(this.config.trebleBottomLineMidi)
-        const staffBottomStep = trebleBottomLineStep
-        const staffTopStep = trebleBottomLineStep + 8
-
-        for (const item of allItems) {
-            if (item.event.kind === "rest") {
-                const restBaselineY = this.config.staffTop + 2.5 * this.config.lineSpacing
-                drawRest(this.ctx, item.x, item.durTicks, restBaselineY, this.config)
-            } else {
-                const midi = pitchToMidi(item.event.pitch)
-                const step = midiToDiatonicStep(midi)
-                const y = this.stepToY(step)
-                const noteColor = this.getNoteColor(item.tick, state.noteResults)
-
-                // Ledger lines
-                drawLedgerLines(
-                    this.ctx, item.x, step,
-                    staffBottomStep, staffTopStep,
-                    (s) => this.stepToY(s),
-                    noteColor, this.config
-                )
-
-                // Note head
-                drawNoteHead(this.ctx, item.x, y, item.durTicks, noteColor, this.config)
-
-                // Accidental
-                const acc = getAccidentalFromPitch(item.event.pitch)
-                if (acc) {
-                    drawAccidental(this.ctx, acc, item.x, y, noteColor, this.config)
-                }
-
-                // Stem
-                const { stemX, stemTopY } = drawStem(this.ctx, item.x, y, noteColor, this.config)
-                item.y = y
-                item.stemX = stemX
-                item.stemTopY = stemTopY
-                item.isTriplet = item.event.dur === "8t"
-
-                // Dot
-                if (item.event.dur === "q." || item.event.dur === "8." || item.event.dur === "h.") {
-                    drawDot(this.ctx, item.x, y, noteColor)
-                }
-            }
-        }
-
-        // 7. Draw beams for eighth notes
-        const beamGroups = calculateEighthOnlyBeamGroups(allItems, measureTicks)
-        for (const g of beamGroups) {
-            for (const n of g) n.isBeamed = true
-        }
-        for (const g of beamGroups) {
-            const beamColor = this.getNoteColor(g[0].tick, state.noteResults)
-            drawBeam(this.ctx, g, beamColor, this.config)
-        }
-
-        // 7.5. Draw double beams for sixteenth notes
-        const mixedBeamGroups = calculateMixedBeamGroups(allItems, measureTicks)
-        for (const g of mixedBeamGroups.primary) {
-            for (const n of g) n.isBeamed = true
-        }
-        // Draw primary beams for all notes, secondary beams for sixteenth subgroups
-        for (let i = 0; i < mixedBeamGroups.primary.length; i++) {
-            const primaryGroup = mixedBeamGroups.primary[i]
-            const beamColor = this.getNoteColor(primaryGroup[0].tick, state.noteResults)
-
-            // Find which secondary groups belong to this primary group
-            const relevantSecondaryGroups = mixedBeamGroups.secondary.filter(secGroup => {
-                return secGroup.every(note => primaryGroup.includes(note))
-            })
-
-            if (relevantSecondaryGroups.length > 0) {
-                // Draw mixed beam with secondary beams for sixteenths
-                for (const secGroup of relevantSecondaryGroups) {
-                    drawMixedBeam(this.ctx, primaryGroup, secGroup, beamColor, this.config)
-                }
-            } else {
-                // No sixteenths, just primary beam
-                drawBeam(this.ctx, primaryGroup, beamColor, this.config)
+            // Draw clef only on first line
+            if (lineLayout.lineNumber === 0) {
+                drawClef(this.ctx, config, adjustedYOffset)
             }
 
-            // Draw partial beams for isolated sixteenths in mixed groups
-            for (let j = 0; j < primaryGroup.length; j++) {
-                const note = primaryGroup[j]
-                if (note.event.dur === "16") {
-                    // Check if this sixteenth is part of a secondary group
-                    const isInSecondaryGroup = relevantSecondaryGroups.some(sg => sg.includes(note))
+            // Draw bar lines at the end of each measure
+            const firstMeasure = lineLayout.startMeasureIndex
+            const lastMeasure = lineLayout.endMeasureIndex
+            const barlineTopY = config.staffTop + adjustedYOffset
+            const barlineBottomY = config.staffTop + adjustedYOffset + 4 * config.lineSpacing
 
-                    if (!isInSecondaryGroup) {
-                        // Isolated sixteenth - draw partial beam
-                        const direction = j === 0 ? "right" : "left"
-                        drawPartialSecondaryBeam(this.ctx, note, direction, beamColor, this.config)
+            for (let b = firstMeasure; b < lastMeasure; b++) {
+                const x = x0 + (b - firstMeasure + 1) * measureTicks * tickW
+                this.ctx.strokeStyle = config.primaryColor
+                this.ctx.lineWidth = 2
+                this.ctx.beginPath()
+                this.ctx.moveTo(x, barlineTopY)
+                this.ctx.lineTo(x, barlineBottomY)
+                this.ctx.stroke()
+            }
+
+            // Draw final barline at the end of the last measure on this line
+            const endX = x0 + (lastMeasure - firstMeasure + 1) * measureTicks * tickW
+            this.ctx.strokeStyle = config.primaryColor
+            this.ctx.lineWidth = 2
+            this.ctx.beginPath()
+            this.ctx.moveTo(endX, barlineTopY)
+            this.ctx.lineTo(endX, barlineBottomY)
+            this.ctx.stroke()
+
+            // Draw double barline at the very end of the score
+            if (lineLayout.lineNumber === lineLayouts.length - 1) {
+                const doubleLineGap = 4
+                this.ctx.strokeStyle = config.primaryColor
+                this.ctx.lineWidth = 2
+
+                // First line of double barline
+                this.ctx.beginPath()
+                this.ctx.moveTo(endX - doubleLineGap, barlineTopY)
+                this.ctx.lineTo(endX - doubleLineGap, barlineBottomY)
+                this.ctx.stroke()
+
+                // Second line of double barline
+                this.ctx.beginPath()
+                this.ctx.moveTo(endX, barlineTopY)
+                this.ctx.lineTo(endX, barlineBottomY)
+                this.ctx.stroke()
+            }
+
+            // Calculate all note positions for the measures on this line
+            const measuresForLine = state.score.measures.slice(lineLayout.startMeasureIndex, lineLayout.endMeasureIndex + 1)
+            const scoreForLine: Score = { measures: measuresForLine }
+            const allItems = calculateNotePositions(scoreForLine, config, this.canvas.width, x0, tickW, adjustedYOffset)
+
+            // 5. Draw rests and notes
+            const trebleBottomLineStep = midiToDiatonicStep(config.trebleBottomLineMidi)
+            const staffBottomStep = trebleBottomLineStep
+            const staffTopStep = trebleBottomLineStep + 8
+
+            for (const item of allItems) {
+                if (item.event.kind === "rest") {
+                    const restBaselineY = adjustedYOffset + 2.5 * config.lineSpacing
+                    drawRest(this.ctx, item.x, item.durTicks, restBaselineY, config)
+                } else {
+                    const midi = pitchToMidi(item.event.pitch)
+                    const step = midiToDiatonicStep(midi)
+                    const y = this.stepToY(step, config.staffTop, config.lineSpacing) + adjustedYOffset
+                    const noteColor = this.getNoteColor(item.tick, state.noteResults)
+
+                    drawLedgerLines(
+                        this.ctx, item.x, step,
+                        staffBottomStep, staffTopStep,
+                        (s) => this.stepToY(s, config.staffTop, config.lineSpacing) + adjustedYOffset,
+                        noteColor, config
+                    )
+
+                    drawNoteHead(this.ctx, item.x, y, item.durTicks, noteColor, config)
+
+                    const acc = getAccidentalFromPitch(item.event.pitch)
+                    if (acc) {
+                        drawAccidental(this.ctx, acc, item.x, y, noteColor, config)
+                    }
+
+                    const { stemX, stemTopY } = drawStem(this.ctx, item.x, y, noteColor, config)
+                    item.y = y
+                    item.stemX = stemX
+                    item.stemTopY = stemTopY
+                    item.isTriplet = item.event.dur === "8t"
+
+                    if (item.event.dur === "q." || item.event.dur === "8." || item.event.dur === "h.") {
+                        drawDot(this.ctx, item.x, y, noteColor)
                     }
                 }
             }
-        }
 
-        // 8. Draw triplet beams and brackets
-        const tripletGroups = calculateTripletGroups(allItems, measureTicks)
-        for (const group of tripletGroups) {
-            const notes = group.filter((it: DrawItem) => it.event.kind === "note")
-
-            if (notes.length >= 2) {
-                const beamColor = this.getNoteColor(notes[0].tick, state.noteResults)
-                drawBeam(this.ctx, notes, beamColor, this.config)
-                for (const note of notes) note.isBeamed = true
+            // 6. Draw beams for eighth notes
+            const beamGroups = calculateEighthOnlyBeamGroups(allItems, measureTicks)
+            for (const g of beamGroups) {
+                for (const n of g) n.isBeamed = true
+            }
+            for (const g of beamGroups) {
+                const beamColor = this.getNoteColor(g[0].tick, state.noteResults)
+                drawBeam(this.ctx, g, beamColor, config)
             }
 
-            drawTripletBracket(this.ctx, group, notes, this.config.staffTop, this.config)
-        }
+            // 6.5. Draw double beams for sixteenth notes
+            const mixedBeamGroups = calculateMixedBeamGroups(allItems, measureTicks)
+            for (const g of mixedBeamGroups.primary) {
+                for (const n of g) n.isBeamed = true
+            }
+            for (let i = 0; i < mixedBeamGroups.primary.length; i++) {
+                const primaryGroup = mixedBeamGroups.primary[i]
+                const beamColor = this.getNoteColor(primaryGroup[0].tick, state.noteResults)
 
-        // 9. Draw flags for unbeamed eighth notes
-        for (const it of allItems) {
-            if (
-                it.event.kind === "note" &&
-                !it.isBeamed &&
-                it.stemX !== undefined &&
-                it.stemTopY !== undefined
-            ) {
-                if (it.event.dur === "8" || it.event.dur === "8t") {
-                    const flagColor = this.getNoteColor(it.tick, state.noteResults)
-                    drawFlag(this.ctx, it.stemX, it.stemTopY, flagColor)
-                } else if (it.event.dur === "16") {
-                    const flagColor = this.getNoteColor(it.tick, state.noteResults)
-                    drawSixteenthFlag(this.ctx, it.stemX, it.stemTopY, flagColor)
+                const relevantSecondaryGroups = mixedBeamGroups.secondary.filter(secGroup => {
+                    return secGroup.every(note => primaryGroup.includes(note))
+                })
+
+                if (relevantSecondaryGroups.length > 0) {
+                    for (const secGroup of relevantSecondaryGroups) {
+                        drawMixedBeam(this.ctx, primaryGroup, secGroup, beamColor, config)
+                    }
+                } else {
+                    drawBeam(this.ctx, primaryGroup, beamColor, config)
+                }
+
+                for (let j = 0; j < primaryGroup.length; j++) {
+                    const note = primaryGroup[j]
+                    if (note.event.dur === "16") {
+                        const isInSecondaryGroup = relevantSecondaryGroups.some(sg => sg.includes(note))
+
+                        if (!isInSecondaryGroup) {
+                            const direction = j === 0 ? "right" : "left"
+                            drawPartialSecondaryBeam(this.ctx, note, direction, beamColor, config)
+                        }
+                    }
                 }
             }
-        }
 
-        // 10. Draw ties
-        for (const it of allItems) {
-            if (it.event.kind === "note" && (it.event as NoteEvent).tiedTo) {
-                const nextMeasureIdx = it.eventIndex === state.score.measures[it.measureIndex].events.length - 1
-                    ? it.measureIndex + 1
-                    : it.measureIndex
-                const nextEventIdx = it.eventIndex === state.score.measures[it.measureIndex].events.length - 1
-                    ? 0
-                    : it.eventIndex + 1
+            // 7. Draw triplet beams and brackets
+            const tripletGroups = calculateTripletGroups(allItems, measureTicks)
+            for (const group of tripletGroups) {
+                const notes = group.filter((it: DrawItem) => it.event.kind === "note")
 
-                const nextItem = allItems.find(
-                    (item: DrawItem) => item.measureIndex === nextMeasureIdx && item.eventIndex === nextEventIdx
+                if (notes.length >= 2) {
+                    const beamColor = this.getNoteColor(notes[0].tick, state.noteResults)
+                    drawBeam(this.ctx, notes, beamColor, config)
+                    for (const note of notes) note.isBeamed = true
+                }
+
+                drawTripletBracket(this.ctx, group, notes, adjustedYOffset, config)
+            }
+
+            // 8. Draw flags for unbeamed eighth notes
+            for (const it of allItems) {
+                if (
+                    it.event.kind === "note" &&
+                    !it.isBeamed &&
+                    it.stemX !== undefined &&
+                    it.stemTopY !== undefined
+                ) {
+                    if (it.event.dur === "8" || it.event.dur === "8t") {
+                        const flagColor = this.getNoteColor(it.tick, state.noteResults)
+                        drawFlag(this.ctx, it.stemX, it.stemTopY, flagColor)
+                    } else if (it.event.dur === "16") {
+                        const flagColor = this.getNoteColor(it.tick, state.noteResults)
+                        drawSixteenthFlag(this.ctx, it.stemX, it.stemTopY, flagColor)
+                    }
+                }
+            }
+
+            // 9. Draw ties
+            for (const it of allItems) {
+                if (it.event.kind === "note" && (it.event as NoteEvent).tiedTo) {
+                    const nextMeasureIdx = it.eventIndex === state.score.measures[it.measureIndex + lineLayout.startMeasureIndex].events.length - 1
+                        ? it.measureIndex + 1
+                        : it.measureIndex
+                    const nextEventIdx = it.eventIndex === state.score.measures[it.measureIndex + lineLayout.startMeasureIndex].events.length - 1
+                        ? 0
+                        : it.eventIndex + 1
+
+                    const nextItem = allItems.find(
+                        (item: DrawItem) => item.measureIndex === nextMeasureIdx && item.eventIndex === nextEventIdx
+                    )
+
+                    if (nextItem && it.y !== undefined && nextItem.y !== undefined) {
+                        const tieColor = this.getNoteColor(it.tick, state.noteResults)
+                        drawTie(this.ctx, it.x + 8, nextItem.x - 8, it.y, tieColor)
+                    }
+                }
+            }
+
+            // 10. Draw playhead only on the line that contains it
+            if (state.currentTime !== undefined && state.tempo !== undefined) {
+                const totalTicks = state.score.measures.length * measureTicks
+                const playheadX = calculatePlayheadX(
+                    state.currentTime,
+                    state.tempo,
+                    totalTicks,
+                    config,
+                    this.canvas.width
                 )
 
-                if (nextItem && it.y !== undefined && nextItem.y !== undefined) {
-                    const tieColor = this.getNoteColor(it.tick, state.noteResults)
-                    drawTie(this.ctx, it.x + 8, nextItem.x - 8, it.y, tieColor)
+                // Check if playhead is on this line
+                const lineStartX = x0
+                const lineEndX = x0 + (lineLayout.endMeasureIndex - lineLayout.startMeasureIndex + 1) * measureTicks * tickW
+
+                if (playheadX >= lineStartX && playheadX <= lineEndX) {
+                    drawPlayhead(this.ctx, playheadX, config, adjustedYOffset)
                 }
-            }
-        }
-
-        // 11. Draw playhead (if playing)
-        if (state.currentTime !== undefined && state.tempo !== undefined) {
-            const playheadX = calculatePlayheadX(
-                state.currentTime,
-                state.tempo,
-                totalTicks,
-                this.config,
-                this.canvas.width
-            )
-
-            if (playheadX >= x0 && playheadX <= this.canvas.width - this.config.rightPad) {
-                drawPlayhead(this.ctx, playheadX, this.config)
             }
         }
     }
@@ -337,7 +481,6 @@ export type {
     StaffConfig,
     CanvasSizing,
     ClefType,
-    TimeSignature,
     MusicalConfig,
     DrawItem,
     RenderState,

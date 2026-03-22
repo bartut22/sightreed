@@ -18,7 +18,7 @@ export default function AssessmentResults({ result, onClose }: Props) {
     if (score >= 70) return { letter: "C", color: "#f59e0b" }
     if (score >= 65) return { letter: "D+", color: "#ef4444" }
     if (score >= 60) return { letter: "D", color: "#ef4444" }
-    return { letter: "F", color: "#991b1b" }
+    return { letter: "F", color: "#DC2626" }
   }
 
   function getTimingColor(tendency: string, description: string) {
@@ -59,121 +59,82 @@ export default function AssessmentResults({ result, onClose }: Props) {
 
   return (
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.9)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 999,
-        padding: 24,
-      }}
+      className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-999 p-6"
       onClick={onClose}
     >
       <div
-        style={{
-          background: "#1a1a1a",
-          border: "2px solid #333",
-          borderRadius: 12,
-          padding: 32,
-          maxWidth: 600,
-          width: "100%",
-        }}
+        className="bg-gray-800 border-gray-700 border-2 rounded-xl p-8 max-w-150 w-full"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 style={{ marginTop: 0, textAlign: "center" }}>Performance Assessment</h2>
 
-        <div
-          style={{
-            textAlign: "center",
-            padding: 24,
-            background: "#0a0a0a",
-            borderRadius: 8,
-            marginBottom: 24,
-          }}
-        >
-          <div style={{ fontSize: 72, fontWeight: 700, color: overallGrade.color }}>
+        <div class="text-center p-6 bg-gray-900 rounded-lg mb-6" >
+          <div style={{ color: overallGrade.color }} className="text-7xl font-bold">
             {result.overallScore}%
           </div>
-          <div style={{ fontSize: 32, color: overallGrade.color, marginTop: 8 }}>
+          <div style={{ color: overallGrade.color}} className="text-4xl mt-2">
             Grade: {overallGrade.letter}
           </div>
         </div>
 
         {/* Timing Analysis */}
         <div
-          style={{
-            padding: 16,
-            background: "#0a0a0a",
-            borderRadius: 8,
-            marginBottom: 16,
-            border: `2px solid ${timingColor}`,
-          }}
+          className="p-4 bg-gray-900 rounded-lg mb-4 border-2"
+          style={{ borderColor: timingColor }}
         >
-          <div style={{ fontSize: 14, color: "#888", marginBottom: 8 }}>Timing</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ fontSize: 32 }}>{timingIcon}</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 20, fontWeight: 600, color: timingColor }}>
-                {timingLabel}
+          <div className="text-sm text-gray-500 mb-2">Timing</div>
+          <div className="flex items-center gap-3">
+            <div className="text-4xl" style={{color: timingColor }}>{timingIcon}</div>
+            <div className="flex-1">
+              <div className="text-xl font-semibold" style={{ color: timingColor }}>
+          {timingLabel}
               </div>
-              <div style={{ fontSize: 13, color: "#ccc" }}>
-                {result.timing.description}
+              <div className="text-sm text-gray-300">
+          {result.timing.description}
               </div>
             </div>
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
-          <div style={{ padding: 16, background: "#0a0a0a", borderRadius: 8 }}>
-            <div style={{ fontSize: 12, color: "#888", marginBottom: 4 }}>Pitch Accuracy</div>
-            <div style={{ fontSize: 28, fontWeight: 600 }}>{result.pitchAccuracy}%</div>
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="p-4 bg-gray-900 rounded-lg">
+            <div className="text-xs text-gray-500 mb-1">Pitch Accuracy</div>
+            <div className="text-2xl font-semibold">{result.pitchAccuracy}%</div>
           </div>
 
-          <div style={{ padding: 16, background: "#0a0a0a", borderRadius: 8 }}>
-            <div style={{ fontSize: 12, color: "#888", marginBottom: 4 }}>Rhythm Accuracy</div>
-            <div style={{ fontSize: 28, fontWeight: 600 }}>{result.rhythmAccuracy}%</div>
+          <div className="p-4 bg-gray-900 rounded-lg">
+            <div className="text-xs text-gray-500 mb-1">Rhythm Accuracy</div>
+            <div className="text-2xl font-semibold">{result.rhythmAccuracy}%</div>
           </div>
 
-          <div style={{ padding: 16, background: "#0a0a0a", borderRadius: 8 }}>
-            <div style={{ fontSize: 12, color: "#888", marginBottom: 4 }}>Tone Quality</div>
-            <div style={{ fontSize: 28, fontWeight: 600 }}>{result.toneQuality}%</div>
+          <div className="p-4 bg-gray-900 rounded-lg">
+            <div className="text-xs text-gray-500 mb-1">Tone Quality</div>
+            <div className="text-2xl font-semibold">{result.toneQuality}%</div>
           </div>
 
-          <div style={{ padding: 16, background: "#0a0a0a", borderRadius: 8 }}>
-            <div style={{ fontSize: 12, color: "#888", marginBottom: 4 }}>Notes Correct</div>
-            <div style={{ fontSize: 28, fontWeight: 600 }}>
+          <div className="p-4 bg-gray-900 rounded-lg">
+            <div className="text-xs text-gray-500 mb-1">Notes Correct</div>
+            <div className="text-2xl font-semibold">
               {result.details.correct}/{result.details.total}
             </div>
           </div>
         </div>
 
         {/* Excerpt Details */}
-        <div style={{ padding: 16, background: "#0a0a0a", borderRadius: 8, marginBottom: 24 }}>
-          <div style={{ fontSize: 14, color: "#888", marginBottom: 8 }}>Excerpt Details</div>
-          <div style={{ fontSize: 13, color: "#ccc", marginBottom: 4 }}>
+        <div className="p-4 bg-gray-900 rounded-lg mb-6">
+          <div className="text-sm text-gray-500 mb-2">Excerpt Details</div>
+          <div className="text-sm text-gray-300 mb-1">
             Difficulty: {difficultyText}
             {result.difficulty && ` (${scoreMultiplierForDifficulty(result.difficulty)}× multiplier)`}
           </div>
-          <div style={{ fontSize: 13, color: "#ccc" }}>
+          <div className="text-sm text-gray-300">
             Average HNR: {result.details.avgHNR} dB • Centroid Consistency: {result.details.centroidConsistency}%
           </div>
         </div>
 
         <button
           onClick={onClose}
-          style={{
-            width: "100%",
-            padding: "12px 24px",
-            background: "#1f6feb",
-            color: "white",
-            border: "none",
-            borderRadius: 8,
-            fontSize: 16,
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
+          className="w-full px-3 py-6 bg-blue-600 hover:bg-blue-700 text-white border-0 rounded-lg text-base font-semibold cursor-pointer"
         >
           Close
         </button>

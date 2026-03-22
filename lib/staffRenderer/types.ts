@@ -1,4 +1,4 @@
-import { Duration, Event, PitchSpelling, Score } from "../notation"
+import { Duration, Event, PitchSpelling, Score, TimeSig } from "../notation"
 
 export type StaffConfig = {
   canvasWidth?: number
@@ -25,6 +25,7 @@ export type StaffConfig = {
   
   primaryColor: string
   correctNoteColor: string
+  wrongPitchColor: string
   incorrectNoteColor: string
   playheadColor: string
   
@@ -40,11 +41,10 @@ export type CanvasSizing = {
 }
 
 export type ClefType = "treble" | "bass" | "alto" | "tenor"
-export type TimeSignature = { beats: number; beatUnit: number }
 
 export interface MusicalConfig {
   clef: ClefType
-  timeSignature: TimeSignature
+  timeSignature: TimeSig
   keySignature?: number // -7 to 7 (flats to sharps)
 }
 
@@ -75,4 +75,11 @@ export type NoteColor = {
   noteHead: string
   stem: string
   accidental: string
+}
+
+export type LineLayout = {
+  lineNumber: number
+  startMeasureIndex: number
+  endMeasureIndex: number
+  yOffset: number
 }

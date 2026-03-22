@@ -29,7 +29,7 @@ export type RestEvent = {
 }
 
 export type Event = NoteEvent | RestEvent
-export type TimeSig = { beats: 4; beatUnit: 4 }
+export type TimeSig = { beats: number; beatUnit: number }
 
 export type Measure = {
   timeSig: TimeSig

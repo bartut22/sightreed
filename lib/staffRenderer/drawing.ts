@@ -408,13 +408,14 @@ export function drawRest(
 export function drawStaffLines(
   ctx: CanvasRenderingContext2D,
   config: StaffConfig,
-  canvasWidth: number
+  canvasWidth: number,
+  yOffset: number = 0
 ): void {
   ctx.strokeStyle = config.primaryColor
   ctx.lineWidth = 1
 
   for (let i = 0; i < 5; i++) {
-    const y = config.staffTop + i * config.lineSpacing
+    const y = config.staffTop + i * config.lineSpacing + yOffset
     ctx.beginPath()
     ctx.moveTo(config.leftPad, y)
     ctx.lineTo(canvasWidth - config.rightPad, y)
@@ -427,13 +428,14 @@ export function drawStaffLines(
  */
 export function drawClef(
   ctx: CanvasRenderingContext2D,
-  config: StaffConfig
+  config: StaffConfig,
+  yOffset: number = 0
 ): void {
   const clef = "\uD834\uDD1E"
   ctx.fillStyle = config.primaryColor
   ctx.font = config.clefFont
   const clefX = config.leftPad + 6
-  const clefBaselineY = config.staffTop + 4 * config.lineSpacing
+  const clefBaselineY = config.staffTop + 4 * config.lineSpacing + yOffset
   ctx.fillText(clef, clefX, clefBaselineY)
 }
 
@@ -479,13 +481,14 @@ export function drawTitle(
 export function drawPlayhead(
   ctx: CanvasRenderingContext2D,
   x: number,
-  config: StaffConfig
+  config: StaffConfig,
+  yOffset: number = 0
 ): void {
   ctx.strokeStyle = config.playheadColor
   ctx.lineWidth = 2
   ctx.beginPath()
-  ctx.moveTo(x, config.staffTop - 10)
-  ctx.lineTo(x, config.staffTop + 4 * config.lineSpacing + 10)
+  ctx.moveTo(x, config.staffTop - 10 + yOffset)
+  ctx.lineTo(x, config.staffTop + 4 * config.lineSpacing + 10 + yOffset)
   ctx.stroke()
 }
 

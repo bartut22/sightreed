@@ -99,6 +99,7 @@ export default function PitchStaff({ pitch, rms, clarity, transposeSemitones = 0
     if (pitch) {
       const concertMidi = Math.round(69 + 12 * Math.log2(pitch / 440))
       const transposedMidi = concertMidi + transposeSemitones
+      console.log(concertMidi, transposedMidi)
       const step = midiToDiatonicStep(transposedMidi)
       const y = stepToY(step)
 
