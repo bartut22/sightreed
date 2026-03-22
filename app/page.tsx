@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   startAudio,
   getAudioContext,
@@ -88,6 +88,7 @@ export default function Home() {
   const [playedNoteBlocks, setPlayedNoteBlocks] = useState<PlayedNoteBlock[]>(
     [],
   );
+  const [playbackOffsetSec, setPlaybackOffsetSec] = useState(0);
 
   const [instrument, setInstrument] = useState<string>("bbClarinet");
 
@@ -243,7 +244,7 @@ export default function Home() {
       metronomeRef.current?.stop();
       metronomeRef.current = new Metronome(ctx);
     }
-  }, [tempo]);
+  }, [appState, tempo]);
 
   function getUrlParamsForGeneration(link: string): GenerationSettings | null {
     const params = new URLSearchParams(link);
@@ -268,6 +269,36 @@ export default function Home() {
 
     return null;
   }
+
+  const handleGenerate = useCallback(
+    (generateSeed: boolean = true) => {
+      if (!settings) return;
+      const { seed, ...settingsWithoutSeed } = settings;
+      const gen = generatePhrase(generateSeed ? settingsWithoutSeed : settings);
+      setGenerated(gen);
+      setAssessment(null);
+      setGraphStateHistory([]);
+      setPlayedNoteBlocks([]);
+      setListeningMode(false);
+      if (recordingUrl) {
+        URL.revokeObjectURL(recordingUrl);
+        setRecordingUrl(null);
+      }
+      // setRecordingMeta(null)
+
+      // Update URL with new seed
+      const params = new URLSearchParams({
+        seed: gen.seed.toString(),
+        bars: (settings.bars ?? -1).toString(),
+        difficulty: (settings.difficulty ?? -1).toString(),
+        tempo: tempo.toString(),
+      });
+      window.history.replaceState({}, "", `?${params.toString()}`);
+      setDifficultyChanged(false);
+      setPlaybackOffsetSec(0);
+    },
+    [settings, tempo, recordingUrl],
+  );
 
   // // Load exercise from URL on mount
   // useEffect(() => {
@@ -318,7 +349,7 @@ export default function Home() {
       console.log("No URL settings found");
       handleGenerate(true);
     }
-  }, []);
+  }, [handleGenerate]);
 
   useEffect(() => {
     // Settings changed
@@ -359,32 +390,6 @@ export default function Home() {
       .then(() => {
         alert("Link copied to clipboard!");
       });
-  };
-
-  const handleGenerate = (generateSeed: boolean = true) => {
-    if (!settings) return;
-    const { seed, ...settingsWithoutSeed } = settings;
-    const gen = generatePhrase(generateSeed ? settingsWithoutSeed : settings);
-    setGenerated(gen);
-    setAssessment(null);
-    setGraphStateHistory([]);
-    setPlayedNoteBlocks([]);
-    setListeningMode(false);
-    if (recordingUrl) {
-      URL.revokeObjectURL(recordingUrl);
-      setRecordingUrl(null);
-    }
-    // setRecordingMeta(null)
-
-    // Update URL with new seed
-    const params = new URLSearchParams({
-      seed: gen.seed.toString(),
-      bars: (settings.bars ?? -1).toString(),
-      difficulty: (settings.difficulty ?? -1).toString(),
-      tempo: tempo.toString(),
-    });
-    window.history.replaceState({}, "", `?${params.toString()}`);
-    setDifficultyChanged(false);
   };
 
   const handleStart = () => {
@@ -479,6 +484,11 @@ export default function Home() {
                 );
                 const clickTimes = await detectClickTimes(blob, tempo);
 
+                // Use first detected click as playback alignment anchor
+                const firstClickSec = clickTimes.length > 0 ? clickTimes[0] : 0;
+
+                setPlaybackOffsetSec(Math.max(0, firstClickSec / 1000));
+
                 const expectedClicks = pending.score.measures.length * 4;
                 if (clickTimes.length < expectedClicks * 0.5) {
                   console.warn(
@@ -570,61 +580,44 @@ export default function Home() {
     setShowResultsModal(false);
   };
 
-  const toggleListening = () => {
-    if (!recordingUrl || !audioRef.current) return;
-    if (audioRef.current.paused) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play();
+  const toggleListening = async () => {
+    const a = audioRef.current;
+    if (!recordingUrl || !a) return;
+
+    if (!a.paused) {
+      a.pause();
+      setListeningMode(false);
+      return;
+    }
+
+    // Ensure metadata is loaded so duration is known
+    if (a.readyState < 1) {
+      await new Promise<void>((resolve) => {
+        const onLoaded = () => {
+          a.removeEventListener("loadedmetadata", onLoaded);
+          resolve();
+        };
+        a.addEventListener("loadedmetadata", onLoaded);
+        a.load();
+      });
+    }
+
+    const duration = Number.isFinite(a.duration) ? a.duration : 0;
+    const safeStart =
+      duration > 0
+        ? Math.min(Math.max(0, playbackOffsetSec), Math.max(0, duration - 0.05))
+        : 0;
+
+    a.currentTime = safeStart;
+
+    try {
+      await a.play();
       setListeningMode(true);
-    } else {
-      audioRef.current.pause();
+    } catch (err) {
+      console.error("Play error:", err);
       setListeningMode(false);
     }
   };
-
-  // const toggleListening = async () => {
-  //   if (!recordingUrl || !recordingMeta) return
-  //   const ctx = getAudioContext()
-  //   if (!ctx) return
-
-  //   if (listeningMode) {
-  //     listeningSourceRef.current?.stop()
-  //     listeningSourceRef.current = null
-  //     listeningMetRef.current?.stop()
-  //     setListeningMode(false)
-  //     return
-  //   }
-
-  //   if (ctx.state === "suspended") await ctx.resume()
-
-  //   // Decode the blob into an AudioBuffer for precise scheduling
-  //   const arrayBuf = await fetch(recordingUrl).then(r => r.arrayBuffer())
-  //   const audioBuffer = await ctx.decodeAudioData(arrayBuf)
-
-  //   const source = ctx.createBufferSource()
-  //   source.buffer = audioBuffer
-  //   source.connect(ctx.destination)
-
-  //   const startAt = ctx.currentTime + 0.1 // tiny buffer for scheduling
-  //   source.start(startAt)
-  //   source.onended = () => {
-  //     setListeningMode(false)
-  //     listeningMetRef.current?.stop()
-  //   }
-  //   listeningSourceRef.current = source
-
-  //   // Met starts on the same AudioContext clock tick
-  //   if (!listeningMetRef.current) listeningMetRef.current = new Metronome(ctx)
-  //   listeningMetRef.current.start(
-  //     recordingMeta.tempo,
-  //     recordingMeta.totalBeats,
-  //     () => undefined,
-  //     (beat, isBeatOne) => { setCurrentBeat(beat); setIsBeatOne(isBeatOne) },
-  //     startAt - ctx.currentTime // offset so met fires at same moment as audio
-  //   )
-
-  //   setListeningMode(true)
-  // }
 
   return (
     <main>
@@ -632,9 +625,7 @@ export default function Home() {
         {appState === "loading" && (
           <Modal>
             <>
-              <h2 className="mt-0">
-                🎵 Loading Calibration Settings...
-              </h2>
+              <h2 className="mt-0">🎵 Loading Calibration Settings...</h2>
               <p className="text-gray-400 text-base/1.6">
                 Please wait a moment while we load your saved calibration
                 settings and initialize audio.
@@ -844,7 +835,7 @@ export default function Home() {
                   onClick={playTonic}
                   title={getTonicDisplay()}
                   style={{ alignSelf: "flex-end" }}
-                  className="bg-gray-900 hover:bg-gray-800 text-white border-1 border-gray-700 py-2 px-4 rounded-lg cursor-pointer font-semibold"
+                  className="bg-gray-900 hover:bg-gray-800 text-white border border-gray-700 py-2 px-4 rounded-lg cursor-pointer font-semibold"
                 >
                   ♪ Tuning Fork
                 </button>
@@ -895,6 +886,8 @@ export default function Home() {
               transposeSemitones={transposeSemitones}
               audioRef={audioRef}
               isListening={listeningMode}
+              tempo={tempo}
+              playbackOffsetSec={playbackOffsetSec}
             />
           )}
           {recordingUrl && (
@@ -902,18 +895,19 @@ export default function Home() {
               <button
                 onClick={toggleListening}
                 style={{ background: listeningMode ? "#10b981" : "#111827" }}
-                className = "text-white border border-gray-700 py-2 px-4 rounded-lg font-semibold cursor-pointer mt-3"
+                className="text-white border border-gray-700 py-2 px-4 rounded-lg font-semibold cursor-pointer mt-3"
               >
                 {listeningMode ? "Stop Listening" : "Listen to Performance"}
               </button>
               <audio
                 ref={audioRef}
                 src={recordingUrl}
+                preload="auto"
                 onEnded={() => {
                   setListeningMode(false);
-                  // if (listeningMetRef.current) {
-                  //   listeningMetRef.current.stop()
-                  // }
+                }}
+                onPause={() => {
+                  setListeningMode(false);
                 }}
                 className="hidden"
               />

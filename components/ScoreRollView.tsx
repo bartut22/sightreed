@@ -3,7 +3,7 @@
 import { durToTicks, pitchToMidi, type Score } from "@/lib/notation"
 import type { PlayedNoteBlock, TickState } from "@/lib/performanceTracker"
 import { DEFAULT_PHRASE_STAFF_CONFIG } from "@/lib/staffRenderer/main"
-import { JSX, useEffect, useState } from "react"
+import { JSX, useCallback, useEffect, useState } from "react"
 
 type Block = { startTick: number; endTick: number; midi: number; played?: boolean }
 type NoteStatus = "correct" | "wrong" | "timing" | "missing"
@@ -81,10 +81,22 @@ function classifyPerformance(
   return { actualWithStatus, missing }
 }
 
+type Props = {
+  score: Score;
+  performedNotes: PlayedNoteBlock[];
+  stateHistory?: TickState[];
+  transposeSemitones?: number;
+  audioRef?: React.RefObject<HTMLAudioElement | null>;
+  isListening?: boolean;
+  tempo: number;
+  playbackOffsetSec?: number;
+};
+
 export default function ScoreRollView({
   score, performedNotes, stateHistory = [], transposeSemitones = 0,
-  audioRef, isListening = false
-}: { score: Score; performedNotes: PlayedNoteBlock[]; stateHistory?: TickState[]; transposeSemitones?: number, audioRef?: React.RefObject<HTMLAudioElement | null>, isListening?: boolean }) {
+  audioRef, isListening = false, tempo = 120,
+  playbackOffsetSec = 0,
+}: Props) {
   const exp = expectedBlocks(score)
   const act = performedNotes
   const { actualWithStatus, missing } = classifyPerformance(exp, act)
@@ -98,12 +110,8 @@ export default function ScoreRollView({
   const rollHeight = (maxMidi - minMidi + 1) * rowHeight
   const H = topPad + rollHeight + bottomPad
   const rollTop = topPad
-  const x = (t: number) => 70 + (t / totalTicks) * (W - 120)
+  const x = useCallback((t: number) => 70 + (t / totalTicks) * (W - 120), [totalTicks, W])
   const y = (m: number) => rollTop + (maxMidi - m) * rowHeight
-  // Build a tick→Hz lookup from stateHistory for fast access
-  const tickToHz = new Map<number, number | null>(
-    stateHistory.map(s => [s.tick, s.actualHz ?? null])
-  );
 
   const CENTS_RANGE = 50; // ±50 cents maps to ±half rowHeight
 
@@ -111,22 +119,22 @@ export default function ScoreRollView({
 
   useEffect(() => {
     if (!isListening || !audioRef?.current) {
-      setPlayheadX(null)
       return
     }
     let rafId: number
     const tick = () => {
       const audio = audioRef.current
       if (audio && audio.duration) {
-        const progress = audio.currentTime / audio.duration
+        // divide by number of bars times beats per bar times 60 / tempo
+        const duration = (score.measures.length * 4) * (60 / tempo)
+        const progress = Math.max(0, audio.currentTime - playbackOffsetSec) / duration
         setPlayheadX(x(progress * totalTicks))
       }
       rafId = requestAnimationFrame(tick)
     }
     rafId = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(rafId)
-  }, [isListening])
-
+  }, [audioRef, isListening, playbackOffsetSec, score.measures.length, tempo, totalTicks, x])
 
   return (
     <div style={{ overflow: "hidden", background: "#f3f3f3", borderRadius: 12 }}>
@@ -232,7 +240,7 @@ export default function ScoreRollView({
           return <g key={`intonation-${i}`}>{dots}</g>;
         })}
 
-        {playheadX !== null && (
+        {isListening && playheadX !== null && (
           <line
             x1={playheadX} x2={playheadX}
             y1={0} y2={H}
