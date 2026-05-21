@@ -152,7 +152,9 @@ export default function ScoreRollView({
 
         {[...Array(maxMidi - minMidi + 1)].map((_, i) => {
           const midi = maxMidi - i
+          console.log(midi)
           const yLabel = y(midi) + rowHeight * 0.72
+          const HZ = Math.floor(440 * Math.pow(2, (midi - 69) / 12));
           return (
             <text
               key={`lbl-${midi}`}
@@ -163,7 +165,7 @@ export default function ScoreRollView({
               fill="#555"
               fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
             >
-              {midiToLabel(midi + transposeSemitones)}
+              {HZ}hz {midiToLabel(midi)}
             </text>
           )
         })}

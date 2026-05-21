@@ -21,6 +21,7 @@ type Props = {
   currentTime: number;
   tempo: number;
   noteResults?: NoteResult[];
+  zoomLevel: number;
 };
 
 type NoteXMap = Array<{ tickOffset: number; x: number }>;
@@ -110,6 +111,7 @@ export default function AbcStaff({
   score,
   currentTime,
   tempo,
+  zoomLevel,
   // noteResults,
 }: Props) {
   // wrapperRef measures the true available width — never touched by abc.js
@@ -122,6 +124,7 @@ export default function AbcStaff({
   const rafRef = useRef<number | null>(null);
   const currentTimeRef = useRef(currentTime);
   const tempoRef = useRef(tempo);
+  const zoomLevelRef = useRef(zoomLevel);
 
   useEffect(() => {
     currentTimeRef.current = currentTime;
@@ -144,7 +147,9 @@ export default function AbcStaff({
 
   // ── Core render function ─────────────────────────────────────────────────
   const renderAbc = useCallback(() => {
-    if (!wrapperRef.current || !containerRef.current) return;
+    if (!wrapperRef.current || !containerRef.current || !zoomLevelRef.current)
+      return;
+    console.log("renderABC() at zoom level " + zoomLevelRef.current);
 
     const containerWidth = wrapperRef.current.clientWidth;
     const barsPerLine = containerWidth >= 200 ? 4 : 2;
@@ -153,11 +158,11 @@ export default function AbcStaff({
     containerRef.current.innerHTML = "";
 
     import("abcjs").then((abcjs) => {
-      if (!containerRef.current || !wrapperRef.current) return;
-
       abcjs.renderAbc(containerRef.current, abcString, {
         add_classes: true,
         stafftopmargin: 0,
+        responsive: "resize",
+        scale: zoomLevelRef.current,
         staffwidth: containerWidth,
         wrap: {
           preferredMeasuresPerLine: barsPerLine,
@@ -187,6 +192,12 @@ export default function AbcStaff({
   useEffect(() => {
     renderAbc();
   }, [renderAbc]);
+
+  // Dedicated effect for zoom changes
+  useEffect(() => {
+    zoomLevelRef.current = zoomLevel;
+    renderAbc(); // explicitly re-render when zoom changes
+  }, [zoomLevel, renderAbc]);
 
   // ── ResizeObserver on WRAPPER (not container) ────────────────────────────
   useEffect(() => {
@@ -258,7 +269,11 @@ export default function AbcStaff({
       className="relative w-full mx-0 my-auto"
     >
       {/* containerRef: abc.js renders into here */}
-      <div ref={containerRef} id="abcjs-container" className="abc-staff-theme" />
+      <div
+        ref={containerRef}
+        id="abcjs-container"
+        className="abc-staff-theme"
+      />
 
       {/* Playhead overlay */}
       <div

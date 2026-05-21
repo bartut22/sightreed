@@ -158,6 +158,10 @@ export function assessPerformance(
 
   console.log('Actual notes played (with durations):', actualNotes)
 
+  if (actualNotes.length == 0) {
+    console.log("Why u no notes");
+  }
+
   // ✅ Track per-note results
   const noteResults: Array<{ tick: number, passed: boolean }> = []
   const noteTransitions: number[] = []

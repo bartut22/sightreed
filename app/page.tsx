@@ -92,6 +92,8 @@ export default function Home() {
 
   const [instrument, setInstrument] = useState<string>("bbClarinet");
 
+  const [zoomLevel, setZoomLevel] = useState<number>(1); // 1 is default, 2 is zoomed in
+
   // const listeningSourceRef = useRef<AudioBufferSourceNode | null>(null)
 
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -620,7 +622,7 @@ export default function Home() {
   };
 
   return (
-    <main>
+    <main className={"mx-auto max-w-275 w-[min(95vw, 1110px)]"}>
       <div className={"mx-0 p-6 max-w-275 w-[min(95vw, 1110px)]"}>
         {appState === "loading" && (
           <Modal>
@@ -865,6 +867,22 @@ export default function Home() {
               {/* show results */}
             </div>
 
+            <div className="flex gap-3 mb-4 flex-wrap">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-400">Zoom Level</label>
+                <select
+                  value={zoomLevel}
+                  onChange={(e) => setZoomLevel(Number(e.target.value))}
+                  disabled={controlsDisabled}
+                  style={standardInputStyle}
+                >
+                  <option value={1}>1x</option>
+                  <option value={2}>2x</option>
+                </select>
+              </div>
+              {/* zoom level */}
+            </div>
+
             {/* <CellLibraryView/ /> */}
           </>
         )}
@@ -877,6 +895,7 @@ export default function Home() {
             currentTime={appState === "performing" ? currentTime : 0}
             tempo={tempo}
             noteResults={assessment?.noteResults}
+            zoomLevel={zoomLevel}
           />
           {assessment && (
             <ScoreRollView
