@@ -17,6 +17,7 @@ import {
   type GenerationSettings,
 } from "@/lib/generatePhrase";
 import tuning_fork from "../public/tuning-fork.svg";
+import reedlogo2 from "../public/reedlogo2.png";
 import {
   PerformanceTracker,
   TickState,
@@ -792,10 +793,13 @@ export default function Home() {
         {/* loading screen after performance */}
 
         <div className="flex flex-row gap-1 items-center">
-          <img
+          <Image
             className="size-9 pointer-events-none select-none"
-            src="favicon.ico"
-          ></img>
+            src={reedlogo2}
+            alt="Sightreed Logo"
+            width={32}
+            height={32}
+          ></Image>
           <h1
             id="sightreed-logo-text"
             className="text-3xl mt-0 font-semibold pointer-events-none select-none"
@@ -805,7 +809,7 @@ export default function Home() {
 
           {appState !== "loading" && (
             <>
-              <div className="flex gap-3 mt-4 mb-2 ml-4 flex-wrap">
+              <div className="flex gap-3 mt-2 mb-2 ml-4 flex-wrap">
                 <button
                   onClick={() => handleGenerate()}
                   disabled={
@@ -831,6 +835,7 @@ export default function Home() {
 
                 {generated && settings && (
                   <button
+                    aria-label="Share Excerpt"
                     onClick={handleShare}
                     disabled={
                       appState === "performing" || appState === "countdown"
@@ -855,6 +860,7 @@ export default function Home() {
 
                 {generated && appState === "ready" && (
                   <button
+                    aria-label="Start Performance"
                     onClick={handleStart}
                     style={{ alignSelf: "flex-end" }}
                     className="bg-green-500 hover:bg-green-600 text-white border-0 py-2 px-4 rounded-lg font-semibold cursor-pointer"
@@ -875,7 +881,7 @@ export default function Home() {
                       onClick={playTonic}
                       title={getTonicDisplay()}
                       style={{ alignSelf: "flex-end" }}
-                      className="bg-gray-900 hover:bg-gray-800 text-white py-2 px-4 rounded-lg cursor-pointer font-semibold overflow-hidden"
+                      className="bg-gray-900 hover:bg-gray-800 text-white py-2 px-4 rounded-lg cursor-pointer font-semibold select-none overflow-hidden"
                     >
                       <Image
                         src={tuning_fork}
@@ -921,12 +927,8 @@ export default function Home() {
                     <FontAwesomeIcon icon="gear" />
                   </button>
                 )}
-                {/* tuning fork */}
+                {/* settings */}
               </div>
-
-              <div className="flex gap-3 flex-wrap"></div>
-
-              {/* <CellLibraryView/ /> */}
             </>
           )}
         </div>
@@ -934,12 +936,17 @@ export default function Home() {
 
       {generated && (
         <div className="mb-6 max-w-275 w-[min(95vw,1100px)] rounded-lg overflow-hidden bg-white">
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-row justify-between gap-1 px-4">
             {/* <label className="text-xs text-gray-400">Zoom Level</label> */}
             {/* <FontAwesomeIcon icon="fa-solid fa-magnifying-glass-minus" /> */}
 
-            <div className="flex flex-row gap-1 justify-end">
+            <p className="text-xs text-zinc-600 my-auto select-none cursor-help" title={"Change your instrument in the settings"}>
+              Instrument: {INSTRUMENTS[instrument].name}
+            </p>
+
+            <div className="flex flex-row gap-1">
               <button
+                aria-label="Zoom Out"
                 onClick={() => setZoomLevel(Math.max(0.01, zoomLevel - 0.5))}
                 disabled={zoomLevel <= 0.01}
                 className={
@@ -952,12 +959,13 @@ export default function Home() {
                 <FontAwesomeIcon icon="magnifying-glass-minus" />
               </button>
               <button
+                aria-label="Zoom In"
                 onClick={() =>
                   setZoomLevel(Math.floor(Math.min(2, zoomLevel + 0.5) * 2) / 2)
                 }
                 disabled={zoomLevel >= 2}
                 className={
-                  "bg-transparent mr-4 text-gray-900 py-2 rounded-lg font-semibold select-none text-2xl " +
+                  "bg-transparent text-gray-900 py-2 rounded-lg font-semibold select-none text-2xl " +
                   (zoomLevel >= 2
                     ? "opacity-50 cursor-not-allowed"
                     : "cursor-pointer hover:text-gray-400")
