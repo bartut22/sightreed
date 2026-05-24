@@ -1,5 +1,5 @@
-import type { Score, Event, PitchSpelling, Duration, Measure } from "./notation"
-import { durToTicks, TICKS_PER_QUARTER } from "./notation"
+import type { Score, Event, PitchSpelling, Duration, Measure, KeySig } from "./notation"
+import { durToTicks, getPreferredSpellings, pitchToMidi, TICKS_PER_QUARTER } from "./notation"
 
 const BASE_UNIT = 8 // L:1/8
 
@@ -11,8 +11,10 @@ const BASE_UNIT = 8 // L:1/8
  *   C3 = C,
  *   C2 = C,,
  */
-function pitchToAbc(p: PitchSpelling): string {
-  const accidental = p.alter === 1 ? "^" : p.alter === -1 ? "_" : ""
+function pitchToAbc(p: PitchSpelling, key: KeySig): string {
+  const accidental = shouldEmitAccidental(p, key)
+    ? (p.alter === 1 ? "^" : p.alter === -1 ? "_" : "=")
+    : ""
 
   if (p.octave >= 5) {
     // lowercase, apostrophes for each octave above 5
@@ -27,6 +29,15 @@ function pitchToAbc(p: PitchSpelling): string {
     const commas = ",".repeat(Math.max(0, 4 - p.octave))
     return `${accidental}${letter}${commas}`
   }
+}
+
+function shouldEmitAccidental(pitch: PitchSpelling, key: KeySig): boolean {
+  const pc = pitchToMidi(pitch) % 12
+  const spellings = getPreferredSpellings(key)
+  // If this pitch class is in the key's accidental map and matches the key spelling, suppress it
+  const keySpelling = spellings.get(pc)
+  if (!keySpelling) return pitch.alter !== 0  // natural note — only emit if it has an accidental
+  return keySpelling.alter !== pitch.alter     // emit only if it differs from what the key implies
 }
 
 /**
@@ -53,7 +64,7 @@ function durToAbcLength(dur: Duration): string {
  * Beat boundaries get a space (breaks beam).
  * Consecutive 8t events are grouped with (3 prefix.
  */
-function eventsToAbc(events: Event[]): string {
+function eventsToAbc(events: Event[], key: KeySig): string {
   // We'll build "beat groups" — each group is tokens that should be beamed together.
   // Groups are separated by spaces; tokens within a group are joined with no space.
   const beatGroups: string[][] = []
@@ -95,7 +106,7 @@ function eventsToAbc(events: Event[]): string {
           currentGroup.push("z")
         } else {
           const tie = tev.tiedTo ? "-" : ""
-          currentGroup.push(`${pitchToAbc(tev.pitch)}${tie}`)
+          currentGroup.push(`${pitchToAbc(tev.pitch, key)}${tie}`)
         }
       }
       flushGroup()
@@ -112,7 +123,7 @@ function eventsToAbc(events: Event[]): string {
       token = `z${len}`
     } else {
       const tie = ev.tiedTo ? "-" : ""
-      token = `${pitchToAbc(ev.pitch)}${len}${tie}`
+      token = `${pitchToAbc(ev.pitch, key)}${len}${tie}`
     }
 
     // Events >= a quarter note always get their own group (they are never beamed)
@@ -152,8 +163,8 @@ function eventsToAbc(events: Event[]): string {
 /**
  * Convert a single Measure to ABC body + trailing barline.
  */
-function measureToAbc(measure: Measure, isLast: boolean): string {
-  const body = eventsToAbc(measure.events)
+function measureToAbc(measure: Measure, isLast: boolean, key: KeySig): string {
+  const body = eventsToAbc(measure.events, key)
   const barline = isLast ? "|]" : "|"
   return `${body} ${barline}`
 }
@@ -171,6 +182,8 @@ function measureToAbc(measure: Measure, isLast: boolean): string {
 export function scoreToAbc(score: Score): string {
   const firstMeasure = score.measures[0]
   const ts = firstMeasure?.timeSig ?? { beats: 4, beatUnit: 4 }
+  const ks = `K:${score.key.tonic}${score.key.mode === "major" ? "" : (score.key.mode === "minor" ? "m" : "")}`
+  console.log(ks);
 
   const header = [
     "X:1",
@@ -178,11 +191,11 @@ export function scoreToAbc(score: Score): string {
     `L:1/${BASE_UNIT}`,
     `%%stretchlast 0.6`,
     `%%equalbars 1`,
-    "K:C",
+    ks,
   ].filter(Boolean).join("\n")
 
   const body = score.measures
-    .map((m, idx) => measureToAbc(m, idx === score.measures.length - 1))
+    .map((m, idx) => measureToAbc(m, idx === score.measures.length - 1, score.key))
     .join(" ")
 
   return `${header}\n${body}`
