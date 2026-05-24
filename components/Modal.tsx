@@ -1,8 +1,9 @@
 "use client"
 
-export default function Modal({children}: {children: React.ReactNode}) {
+export default function Modal({children, onClose}: {children: React.ReactNode, onClose: () => void}) {
     return (
         <div
+            onClick={onClose}
             style={{
                 position: "fixed",
                 inset: 0,
@@ -14,6 +15,7 @@ export default function Modal({children}: {children: React.ReactNode}) {
             }}
         >
             <div
+                onClick={(e) => e.stopPropagation()}
                 style={{
                     background: "#1a1a1a",
                     padding: 32,
