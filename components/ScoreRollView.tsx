@@ -2,36 +2,7 @@
 
 import { durToTicks, pitchToMidi, type Score } from "@/lib/notation"
 import type { PlayedNoteBlock, TickState } from "@/lib/performanceTracker"
-const DEFAULT_PHRASE_STAFF_CONFIG = {
-    staffTop: 120,
-    lineSpacing: 18,
-    leftPad: 50,
-    rightPad: 30,
-    clefPad: 50,
-    afterClefPad: 16,
-
-    noteHeadWidth: 8,
-    noteHeadHeight: 6,
-    noteHeadRotation: -0.3,
-    stemLength: 30,
-    stemWidth: 2,
-    ledgerLineExtension: 18,
-
-    clefFont: "110px serif",
-    titleFont: "16px sans-serif",
-    restFont: "36px serif",
-    tripletFont: "14px sans-serif",
-    accidentalFont: "14px sans-serif",
-
-    primaryColor: "black",
-    wrongPitchColor: "#eab308",
-    correctNoteColor: "#4ecb41",
-    incorrectNoteColor: "#ef4444",
-    playheadColor: "rgba(34, 197, 94, 0.6)",
-
-    trebleBottomLineMidi: 64,
-}
-
+import { DEFAULT_PHRASE_STAFF_CONFIG } from "@/lib/staffRenderer/main"
 import { JSX, useCallback, useEffect, useState } from "react"
 
 type Block = { startTick: number; endTick: number; midi: number; played?: boolean }
@@ -119,21 +90,19 @@ type Props = {
   isListening?: boolean;
   tempo: number;
   playbackOffsetSec?: number;
-  minMidi?: number;
-  maxMidi?: number;
 };
 
 export default function ScoreRollView({
   score, performedNotes, stateHistory = [], transposeSemitones = 0,
   audioRef, isListening = false, tempo = 120,
-  playbackOffsetSec = 0, minMidi = 60, maxMidi = 88
+  playbackOffsetSec = 0,
 }: Props) {
   const exp = expectedBlocks(score)
   const act = performedNotes
   const { actualWithStatus, missing } = classifyPerformance(exp, act)
   const totalTicks = score.measures.length * 4 * 48
-  minMidi = minMidi ?? Math.max(0,  Math.min(...exp.map(b => b.midi)) - 2)
-  maxMidi = maxMidi ?? Math.min(127, Math.max(...exp.map(b => b.midi)) + 2)
+  const minMidi = 60
+  const maxMidi = 88
   const rowHeight = 16
   const topPad = 24
   const bottomPad = 24
@@ -183,9 +152,9 @@ export default function ScoreRollView({
 
         {[...Array(maxMidi - minMidi + 1)].map((_, i) => {
           const midi = maxMidi - i
-          // console.log(midi)
+          console.log(midi)
           const yLabel = y(midi) + rowHeight * 0.72
-          const HZ = Math.floor(440 * Math.pow(2, (midi - 69 + transposeSemitones) / 12));
+          const HZ = Math.floor(440 * Math.pow(2, (midi - 69) / 12));
           return (
             <text
               key={`lbl-${midi}`}

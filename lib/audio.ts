@@ -1,14 +1,6 @@
 let audioContext: AudioContext | null = null
 let audioStream: MediaStream | null = null
 
-export function initAudioContext() {
-  if (!audioContext) {
-    audioContext = new AudioContext();
-  } else if (audioContext.state === "suspended") {
-    audioContext.resume();
-  }
-}
-
 export function getAudioContext(): AudioContext | null {
   return audioContext
 }
