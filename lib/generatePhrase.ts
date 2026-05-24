@@ -104,18 +104,21 @@ import { Cell, CellUpgrade, BASE_CELLS, CELL_UPGRADES } from "./cellLibrary";
     Difficulty Settings
 ============================================================ */
 
-const INSTRUMENT_RANGES: Record<string, { minMidi: number; maxMidi: number }> =
-  {
-    flute: { minMidi: 60, maxMidi: 91 },
-    bbClarinet: { minMidi: 52, maxMidi: 79 },
-    ebClarinet: { minMidi: 52, maxMidi: 79 },
-    bbSoprano: { minMidi: 58, maxMidi: 89 },
-    bbTenor: { minMidi: 58, maxMidi: 89 },
-    ebAlto: { minMidi: 58, maxMidi: 89 },
-    ebBaritone: { minMidi: 58, maxMidi: 89 },
-    fHorn: { minMidi: 48, maxMidi: 84 },
-    trumpet: { minMidi: 54, maxMidi: 86 },
-  };
+const INSTRUMENT_RANGES: Record<
+  string,
+  // { minMidi: number; maxMidi: number; preferredOctave: number }
+  { minMidi: number; maxMidi: number; }
+> = {
+  flute: { minMidi: 60, maxMidi: 95 }, 
+  bbClarinet: { minMidi: 52, maxMidi: 86 },
+  ebClarinet: { minMidi: 52, maxMidi: 86 },
+  bbSoprano: { minMidi: 58, maxMidi: 89 },
+  ebAlto: { minMidi: 58, maxMidi: 89 },
+  bbTenor: { minMidi: 58, maxMidi: 89 },
+  ebBaritone: { minMidi: 58, maxMidi: 89 },
+  fHorn: { minMidi: 48, maxMidi: 84 },
+  trumpet: { minMidi: 54, maxMidi: 86 },
+};
 
 // Semitone spread around the tonic, per difficulty
 const DIFFICULTY_SPREAD: Record<number, { below: number; above: number }> = {
@@ -393,8 +396,12 @@ function generatePhraseOnce(settings: GenerationSettings = {}): {
   const range = INSTRUMENT_RANGES[settings.instrument];
   const spread = DIFFICULTY_SPREAD[difficulty];
   const middleNote = Math.round((range.minMidi + range.maxMidi) / 2);
+  let tonicMidi = Math.round(middleNote / 12) * 12 + tonic;
 
-  let tonicMidi = Math.floor(middleNote / 12) * 12 + tonic;
+  // If that lands more than a tritone away from instMid, shift by an octave toward it
+  if (tonicMidi - middleNote > 6) tonicMidi -= 12;
+  if (middleNote - tonicMidi > 6) tonicMidi += 12;
+
   while (tonicMidi < range.minMidi) tonicMidi += 12;
   while (tonicMidi > range.maxMidi) tonicMidi -= 12;
 
@@ -646,7 +653,7 @@ function generatePhraseOnce(settings: GenerationSettings = {}): {
     const events: Event[] = [];
 
     for (const cell of upgraded[m]) {
-      console.log(`cell scaleDegs: [${cell.scaleDegs}]`);
+      // console.log(`cell scaleDegs: [${cell.scaleDegs}]`);
 
       for (let i = 0; i < cell.durs.length; i++) {
         const dur = cell.durs[i];

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import type { Score } from "../lib/notation";
 import { durToTicks, TICKS_PER_QUARTER } from "../lib/notation";
 import { scoreToAbc } from "../lib/scoreToAbc";
@@ -161,6 +161,7 @@ export default function AbcStaff({
   transposeSemitones,
   instrument,
 }: Props) {
+  const [isPlaying, setIsPlaying] = useState(false);
   // wrapperRef measures the true available width — never touched by abc.js
   const wrapperRef = useRef<HTMLDivElement>(null);
   // containerRef is what abc.js renders into
@@ -174,6 +175,10 @@ export default function AbcStaff({
   const zoomLevelRef = useRef(zoomLevel);
   const synthRef = useRef<MidiBuffer | null>(null);
   const renderedRef = useRef<abcjs.TuneObject | null>(null);
+  const primedRef = useRef<{ status: string; duration: number }>(null);
+  const isPlayingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   useEffect(() => {
     currentTimeRef.current = currentTime;
@@ -209,7 +214,7 @@ export default function AbcStaff({
         ? `%%MIDI transpose ${transposeSemitones}\n${abcString}`
         : abcString;
 
-    console.log(transposedAbcString);
+    // console.log(transposedAbcString);
 
     containerRef.current.innerHTML = "";
 
@@ -352,6 +357,13 @@ export default function AbcStaff({
         <div className="flex flex-row gap-1 justify-start">
           <button
             onClick={async () => {
+              if (isPlaying) {
+                if (synthRef.current) {
+                  synthRef.current.stop();
+                  setIsPlaying(false);
+                }
+                return;
+              }
               // play the midi file using abcjs
               let ctx = getAudioContext();
               if (!ctx) {
@@ -373,19 +385,31 @@ export default function AbcStaff({
                     soundFontUrl:
                       "https://paulrosen.github.io/midi-js-soundfonts/FatBoy/",
                     program: midiProgramNumber(instrument),
+                    soundFontVolumeMultiplier: 2.5,
                   },
                 });
-                await synth.prime();
+                primedRef.current = await synth.prime();
                 synthRef.current = synth;
               }
 
-              synthRef.current?.start();
+              if (synthRef.current) {
+                if (!primedRef.current) return;
+                setIsPlaying(true);
+                if (isPlayingTimeoutRef.current) {
+                  clearTimeout(isPlayingTimeoutRef.current);
+                }
+                synthRef.current.start();
+                isPlayingTimeoutRef.current = setTimeout(
+                  () => setIsPlaying(false),
+                  primedRef.current.duration * 1000,
+                );
+              }
             }}
             className={
-              "bg-transparent ml-4 text-gray-900 py-2 rounded-lg font-semibold cursor-pointer select-none text-2xl "
+              "bg-transparent ml-4 text-gray-900 py-2 rounded-lg font-semibold select-none text-2xl cursor-pointer"
             }
           >
-            <FontAwesomeIcon icon="play" />
+            <FontAwesomeIcon icon={isPlaying ? "pause" : "play"} />
           </button>
         </div>
       </div>

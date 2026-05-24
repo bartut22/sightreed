@@ -183,7 +183,7 @@ export function scoreToAbc(score: Score): string {
   const firstMeasure = score.measures[0]
   const ts = firstMeasure?.timeSig ?? { beats: 4, beatUnit: 4 }
   const ks = `K:${score.key.tonic}${score.key.mode === "major" ? "" : (score.key.mode === "minor" ? "m" : "")}`
-  console.log(ks);
+  // console.log(ks);
 
   const header = [
     "X:1",

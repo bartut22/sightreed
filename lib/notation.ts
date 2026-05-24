@@ -149,7 +149,10 @@ export function midiToPitchSpellingInKey(
     overrides.get(pc) ?? NATURAL_SPELLINGS[pc] ?? SHARP_SPELLINGS[pc];
     const STEP_NATURAL_PC: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }
     const stepPc = STEP_NATURAL_PC[spelled.step];
-    const correctedOctave = spelled.alter === -1 && stepPc < pc ? octave + 1 : octave;
+    const correctedOctave =
+    spelled.alter === -1 && stepPc < pc ? octave + 1
+    : (spelled.alter === 1  && stepPc > pc) ? octave - 1 
+    : octave;
   return { ...spelled, octave: correctedOctave };
 }
 

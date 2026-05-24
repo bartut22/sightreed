@@ -59,19 +59,19 @@ export default function SettingsModal({
           <h2 className="mt-0">⚙ Settings</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white cursor-pointer"
+            className="text-gray-300 hover:text-white cursor-pointer"
           >
             ✕
           </button>
         </div>
 
-        <p className="text-gray-400 text-base/1.6">
+        <p className="text-gray-300 text-base/1.6">
           Updating these will affect the generated music.
         </p>
 
         {/* Instrument selection */}
         <div className="flex flex-col gap-1">
-          <label className="text-gray-400 text-xs">Instrument</label>
+          <label className="text-gray-300 text-xs">Instrument</label>
           <select
             value={instrument}
             onChange={(e) => {
@@ -91,7 +91,7 @@ export default function SettingsModal({
 
         {/* Difficulty */}
         <div className="flex flex-col gap-1">
-          <label className="text-gray-400 text-xs">Difficulty</label>
+          <label className="text-gray-300 text-xs">Difficulty</label>
           <select
             value={settings?.difficulty ?? -1}
             onChange={(e) => {
@@ -122,7 +122,7 @@ export default function SettingsModal({
 
         {/* # Bars */}
         <div className="flex flex-col gap-1">
-          <label className="text-gray-400 text-xs">Number of Bars</label>
+          <label className="text-gray-300 text-xs">Number of Bars</label>
           <select
             value={settings?.bars ?? -1}
             onChange={(e) => {
@@ -148,7 +148,7 @@ export default function SettingsModal({
 
         {/* Tempo */}
         <div className="flex flex-row gap-1 ml-2 items-center">
-          <label className="text-gray-400">♩ = </label>
+          <label className="text-gray-300">♩ = </label>
           <input
             type="number"
             min={40}
