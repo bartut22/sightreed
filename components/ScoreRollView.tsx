@@ -186,8 +186,19 @@ export default function ScoreRollView({
           // console.log(midi)
           const yLabel = y(midi) + rowHeight * 0.72
           const HZ = Math.floor(440 * Math.pow(2, (midi - 69 + transposeSemitones) / 12));
-);
-      )
+          return (
+            <text
+              key={`lbl-${midi}`}
+              x={48}
+              y={yLabel}
+              textAnchor="end"
+              fontSize={11}
+              fill="#555"
+              fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+            >
+              {HZ}hz {midiToLabel(midi)}
+            </text>
+          )
         })}
 
         {exp.map((b, i) => (
