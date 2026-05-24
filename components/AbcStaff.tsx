@@ -4,6 +4,10 @@ import { useEffect, useRef, useCallback } from "react";
 import type { Score } from "../lib/notation";
 import { durToTicks, TICKS_PER_QUARTER } from "../lib/notation";
 import { scoreToAbc } from "../lib/scoreToAbc";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import abcjs, { MidiBuffer } from "abcjs";
+import { getAudioContext, initAudioContext } from "@/lib/audio";
+import { Instrument } from "./SettingsModal";
 
 // ── Config ───────────────────────────────────────────────────────────────────
 
@@ -22,11 +26,13 @@ type Props = {
   tempo: number;
   noteResults?: NoteResult[];
   zoomLevel: number;
+  transposeSemitones?: number;
+  instrument: string;
 };
 
 type NoteXMap = Array<{ tickOffset: number; x: number }>;
 
-// ── Helpers (unchanged) ───────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function buildTickOffsets(score: Score): number[] {
   const offsets: number[] = [];
@@ -105,6 +111,46 @@ function interpolateX(
   return last.x + t * (containerWidth - last.x);
 }
 
+// const INSTRUMENTS: Record<string, Instrument> = {
+//   flute: { name: "Flute", transposeSemitones: 0 },
+
+//   bbClarinet: { name: "Bb Clarinet", transposeSemitones: -2 },
+//   bbSoprano: { name: "Bb Soprano Sax", transposeSemitones: -2 },
+//   bbTenor: { name: "Bb Tenor Sax", transposeSemitones: -14 },
+
+//   ebClarinet: { name: "Eb Clarinet", transposeSemitones: 3 },
+//   ebAlto: { name: "Eb Alto Sax", transposeSemitones: -9 },
+//   ebBaritone: { name: "Eb Baritone Sax", transposeSemitones: -21 },
+
+//   fHorn: { name: "F Horn", transposeSemitones: -7 },
+
+//   trumpet: { name: "Trumpet", transposeSemitones: -2 },
+// };
+function midiProgramNumber(instrument: string): number {
+  switch (instrument) {
+    case "flute":
+      return 73;
+    case "bbClarinet":
+      return 71;
+    case "bbSoprano":
+      return 64;
+    case "bbTenor":
+      return 66;
+    case "ebClarinet":
+      return 71;
+    case "ebAlto":
+      return 65;
+    case "ebBaritone":
+      return 67;
+    case "fHorn":
+      return 60;
+    case "trumpet":
+      return 56;
+    default:
+      return 65; // Default to piano
+  }
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function AbcStaff({
@@ -112,7 +158,8 @@ export default function AbcStaff({
   currentTime,
   tempo,
   zoomLevel,
-  // noteResults,
+  transposeSemitones,
+  instrument,
 }: Props) {
   // wrapperRef measures the true available width — never touched by abc.js
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -125,6 +172,8 @@ export default function AbcStaff({
   const currentTimeRef = useRef(currentTime);
   const tempoRef = useRef(tempo);
   const zoomLevelRef = useRef(zoomLevel);
+  const synthRef = useRef<MidiBuffer | null>(null);
+  const renderedRef = useRef<abcjs.TuneObject | null>(null);
 
   useEffect(() => {
     currentTimeRef.current = currentTime;
@@ -149,44 +198,59 @@ export default function AbcStaff({
   const renderAbc = useCallback(() => {
     if (!wrapperRef.current || !containerRef.current || !zoomLevelRef.current)
       return;
-    console.log("renderABC() at zoom level " + zoomLevelRef.current);
+    // console.log("renderABC() at zoom level " + zoomLevelRef.current);
 
     const containerWidth = wrapperRef.current.clientWidth;
     const barsPerLine = containerWidth >= 200 ? 4 : 2;
 
     const abcString = scoreToAbc(score);
+    const transposedAbcString = // allows for midi playback of transposing instruments.
+      transposeSemitones != 0
+        ? `%%MIDI transpose ${transposeSemitones}\n${abcString}`
+        : abcString;
+
+    console.log(transposedAbcString);
+
     containerRef.current.innerHTML = "";
 
-    import("abcjs").then((abcjs) => {
-      abcjs.renderAbc(containerRef.current, abcString, {
+    const rendered = abcjs.renderAbc(
+      containerRef.current,
+      transposedAbcString,
+      {
         add_classes: true,
         stafftopmargin: 0,
-        responsive: "resize",
-        scale: zoomLevelRef.current,
+        scale: 1.25 + 0.25 * zoomLevelRef.current,
         staffwidth: containerWidth,
+        selectTypes: false,
+        foregroundColor: "black",
+        paddingtop: 0,
         wrap: {
           preferredMeasuresPerLine: barsPerLine,
           minSpacing: 1.8,
           maxSpacing: 2.7,
         },
-      });
+      },
+    );
+    renderedRef.current = rendered[0];
+    synthRef.current = null;
 
-      const svg = containerRef.current.querySelector("svg");
-      if (svg) {
-        const svgWidth = parseFloat(svg.getAttribute("width") ?? "0");
-        if (svgWidth > 0) {
-          const svgHeight = parseFloat(svg.getAttribute("height") ?? "0");
-          svg.setAttribute("viewBox", `0 0 ${svgWidth} ${svgHeight}`);
-          svg.removeAttribute("width");
-          svg.removeAttribute("height");
-          svg.style.width = "100%";
-          svg.style.height = "100%";
-        }
+    const svg = containerRef.current.querySelector("svg");
+    if (svg) {
+      const svgWidth = parseFloat(svg.getAttribute("width") ?? "0");
+      if (svgWidth > 0) {
+        const svgHeight = parseFloat(svg.getAttribute("height") ?? "0");
+        svg.setAttribute("viewBox", `0 0 ${svgWidth} ${svgHeight}`);
+        svg.removeAttribute("width");
+        svg.removeAttribute("height");
+        svg.style.width = "100%";
+        svg.style.height = "100%";
       }
 
-      requestAnimationFrame(rebuildNoteXMap);
-    });
-  }, [score, rebuildNoteXMap]);
+      document.querySelector("#abcjs-container title")?.remove();
+    }
+
+    requestAnimationFrame(rebuildNoteXMap);
+  }, [score, rebuildNoteXMap, transposeSemitones]);
 
   // ── Initial render ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -263,24 +327,69 @@ export default function AbcStaff({
 
   return (
     // wrapperRef: measures true available width, never modified
-    <div
-      ref={wrapperRef}
-      style={{ maxWidth: MAX_CONTAINER_WIDTH }}
-      className="relative w-full mx-0 my-auto"
-    >
-      {/* containerRef: abc.js renders into here */}
+    <>
       <div
-        ref={containerRef}
-        id="abcjs-container"
-        className="abc-staff-theme"
-      />
+        ref={wrapperRef}
+        style={{ maxWidth: MAX_CONTAINER_WIDTH }}
+        className="relative w-full mx-0 my-auto"
+      >
+        {/* containerRef: abc.js renders into here */}
+        <div
+          ref={containerRef}
+          id="abcjs-container"
+          className="abc-staff-theme"
+        />
 
-      {/* Playhead overlay */}
-      <div
-        ref={playheadRef}
-        style={{ willChange: "transform", transform: "translateX(0px)" }}
-        className="absolute top-0 left-0 w-0.5 h-full bg-blue-500 pointer-events-none opacity-0 transition-opacity duration-100 ease-linear"
-      />
-    </div>
+        {/* Playhead overlay */}
+        <div
+          ref={playheadRef}
+          style={{ willChange: "transform", transform: "translateX(0px)" }}
+          className="absolute top-0 left-0 w-0.5 h-full bg-blue-500 pointer-events-none opacity-0 transition-opacity duration-100 ease-linear"
+        />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <div className="flex flex-row gap-1 justify-start">
+          <button
+            onClick={async () => {
+              // play the midi file using abcjs
+              let ctx = getAudioContext();
+              if (!ctx) {
+                initAudioContext();
+                ctx = getAudioContext();
+              }
+              if (!ctx) return;
+              if (ctx.state !== "running") await ctx.resume();
+
+              if (!renderedRef.current) return;
+
+              if (!synthRef.current) {
+                const synth = new abcjs.synth.CreateSynth();
+                await synth.init({
+                  audioContext: ctx,
+                  visualObj: renderedRef.current,
+                  millisecondsPerMeasure: (60 / tempo) * 4 * 1000,
+                  options: {
+                    soundFontUrl:
+                      "https://paulrosen.github.io/midi-js-soundfonts/FatBoy/",
+                    program: midiProgramNumber(instrument),
+                  },
+                });
+                await synth.prime();
+                synthRef.current = synth;
+              }
+
+              synthRef.current?.start();
+            }}
+            className={
+              "bg-transparent ml-4 text-gray-900 py-2 rounded-lg font-semibold cursor-pointer select-none text-2xl "
+            }
+          >
+            <FontAwesomeIcon icon="play" />
+          </button>
+        </div>
+      </div>
+      {/* play / stop midi */}
+    </>
   );
 }

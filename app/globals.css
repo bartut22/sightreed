@@ -14,7 +14,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
+    --background: #1b1b1f;
     --foreground: #ededed;
   }
 }
@@ -26,9 +26,57 @@ body {
 }
 
 .abc-staff-theme .abcjs-staff,
-.abc-staff-theme > .abcjs-bar,
+.abc-staff-theme>.abcjs-bar,
 .abc-staff-theme svg path.abcjs-staff,
 .abc-staff-theme svg line.abcjs-staff,
-.abc-staff-theme .abcjs-staff > path {
-  fill: #999 !important;
+.abc-staff-theme .abcjs-staff>path,
+g .abcjs-triplet>text {
+  fill: #000 !important;
+  user-select: none;
+}
+
+.abc-staff-theme {
+  background: #fff !important;
+}
+
+#tuning-fork {
+  /* position: absolute; */
+  display: block;
+  width: 18px;
+  height: 22px;
+}
+
+.button-5s-debounce-anim::before {
+  animation-duration: 5s;
+  animation-name: debounce-rtl;
+  animation-timing-function: steps(5);
+  display: block;
+  position: absolute;
+  z-index: 0;
+  content: " ";
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background-color: rgba(0,0,0,0.8);
+}
+
+.button-5s-debounce-anim button img {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes debounce-rtl {
+  from {
+    right: 0;
+  }
+
+  to {
+    right: 100%;
+  }
+}
+
+@media only screen and (max-width: 600px) {
+  #sightreed-logo-text {
+    display: none;
+  }
 }
