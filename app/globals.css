@@ -25,6 +25,10 @@ body {
   /* font-family: Helvetica, sans-serif; */
 }
 
+.screen-cover {
+  background: var(--background);
+}
+
 .abc-staff-theme .abcjs-staff,
 .abc-staff-theme>.abcjs-bar,
 .abc-staff-theme svg path.abcjs-staff,

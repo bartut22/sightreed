@@ -40,6 +40,9 @@ import { far } from "@fortawesome/free-regular-svg-icons";
 import { fab } from "@fortawesome/free-brands-svg-icons";
 import Image from "next/image";
 import SettingsModal from "@/components/SettingsModal";
+import ServerProfileModal from "@/components/ServerProfileModal";
+import { User } from "@supabase/supabase-js";
+import { Profile } from "./page";
 
 library.add(fas, far, fab);
 
@@ -72,7 +75,13 @@ const INSTRUMENTS: Record<string, Instrument> = {
   trumpet: { name: "Trumpet", transposeSemitones: -2 },
 };
 
-export default function Home() {
+export default function Home({
+  user,
+  profile,
+}: {
+  user: User | null;
+  profile: Profile | null;
+}) {
   const [appState, setAppState] = useState<AppState>("ready");
   const [currentBeat, setCurrentBeat] = useState(0);
   const [isBeatOne, setIsBeatOne] = useState(false);
@@ -89,7 +98,7 @@ export default function Home() {
   const [generated, setGenerated] = useState<{
     score: Score;
     seed: number;
-    range: { minMidi: number, maxMidi: number };
+    range: { minMidi: number; maxMidi: number };
   } | null>(null);
   const pendingAssessmentRef = useRef<{
     score: Score;
@@ -98,6 +107,7 @@ export default function Home() {
   const [assessment, setAssessment] = useState<AssessmentResult | null>(null);
   const [showResultsModal, setShowResultsModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [listeningMode, setListeningMode] = useState(false);
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
   // const [recordingMeta, setRecordingMeta] = useState<{ tempo: number; totalBeats: number; metStartMs: number } | null>(null)
@@ -117,6 +127,8 @@ export default function Home() {
   const [isPlayingTonic, setIsPlayingTonic] = useState(false);
 
   const [isMicDenied, setIsMicDenied] = useState(false);
+
+  const [siteLoaded, setSiteLoaded] = useState(false);
 
   // const listeningSourceRef = useRef<AudioBufferSourceNode | null>(null)
 
@@ -164,6 +176,14 @@ export default function Home() {
   const openSettings = () => {
     console.log("Hi");
     setShowSettings(true);
+  };
+
+  const mainFadeDelay = 1000;
+  const finishSiteLoad = () => {
+    setSiteLoaded(true);
+    setTimeout(() => {
+      document.querySelector("main")?.classList.remove("pointer-events-none", "select-none");
+    }, 100);
   };
 
   const getTonicDisplay = (): string => {
@@ -357,7 +377,7 @@ export default function Home() {
       setGenerated({
         score: gen.score,
         seed: gen.seed,
-        range: gen.range ?? { minMidi: 60, maxMidi: 88 }
+        range: gen.range ?? { minMidi: 60, maxMidi: 88 },
       });
       setAssessment(null);
       setGraphStateHistory([]);
@@ -719,124 +739,120 @@ export default function Home() {
   };
 
   return (
-    <main className={"mx-auto max-w-275 w-[min(95vw,1110px)]"}>
-      <div
-        className={
-          "bg-neutral-900 rounded-lg border-2 border-zinc-800 my-2 mx-0 p-6 max-w-275 w-[min(95vw,1110px)]"
-        }
+    <>
+      <div className={`w-screen h-screen fixed flex items-center transition duration-1000 z-999 pointer-events-none select-none ${siteLoaded ? "bg-[rgba(0,0,0,0)] opacity-0" : "screen-cover"}`}>
+        <h1
+          className={`w-screen my-auto relative text-center text-3xl font-semibold`}
+        >
+          Loading...
+        </h1>
+      </div>
+      <main
+        className={`mx-auto max-w-275 w-[min(95vw,1110px)]  transition-opacity duration-1000 delay-${mainFadeDelay} ${siteLoaded ? "opacity-100" : "opacity-0"}} pointer-events-none select-none`}
       >
-        {assessment && showResultsModal && (
-          <AssessmentResults result={assessment} onClose={handleCloseResults} />
-        )}
+        <div
+          className={`bg-neutral-900 rounded-lg border-2 border-zinc-800 my-2 mx-0 p-6 max-w-275 w-[min(95vw,1110px)]`}
+        >
+          {assessment && showResultsModal && (
+            <AssessmentResults
+              result={assessment}
+              onClose={handleCloseResults}
+            />
+          )}
 
-        {showSettings && (
-          <SettingsModal
-            onClose={() => setShowSettings(false)}
-            instrument={instrument}
-            setInstrument={setInstrument}
-            controlsDisabled={controlsDisabled}
-            standardInputStyle={standardInputStyle}
-            settings={settings}
-            setSettings={setSettings}
-            handleGenerate={handleGenerate}
-            tempo={tempo}
-            setTempo={setTempo}
-          />
-        )}
+          {showSettings && (
+            <SettingsModal
+              onClose={() => setShowSettings(false)}
+              instrument={instrument}
+              setInstrument={setInstrument}
+              controlsDisabled={controlsDisabled}
+              standardInputStyle={standardInputStyle}
+              settings={settings}
+              setSettings={setSettings}
+              handleGenerate={handleGenerate}
+              tempo={tempo}
+              setTempo={setTempo}
+            />
+          )}
 
-        {isMicDenied && (
-          <Modal onClose={() => setIsMicDenied(false)}>
-            <h2 className="mt-0">We couldn&apos;t hear you 🎙️</h2>{" "}
-            <p className="text-gray-400">
-              Sightreed needs your microphone to follow along while you play. It
-              looks like access was blocked — this is usually a quick fix. Check
-              the permissions icon in your browser&apos;s address bar, allow the
-              microphone, and hit Start when you&apos;re ready.{" "}
-            </p>
-            <button
-              onClick={() => setIsMicDenied(false)}
-              className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg border-0 cursor-pointer"
-            >
-              Okay, I&apos;ll fix it
-            </button>
-          </Modal>
-        )}
+          {showProfileModal && (
+            <ServerProfileModal
+              onClose={() => setShowProfileModal(false)}
+              user={user}
+              profile={profile}
+            />
+          )}
 
-        {/* assessment results */}
-
-        {appState === "countdown" && (
-          <div className="fixed inset-0 bg-opacity-0 flex items-center justify-center z-999">
-            <div className="text-center">
-              <div
-                style={{ color: isBeatOne ? "#22c55e" : "#3b82f6" }}
-                className="text-9xl font-bold"
+          {isMicDenied && (
+            <Modal onClose={() => setIsMicDenied(false)}>
+              <h2 className="mt-0">We couldn&apos;t hear you 🎙️</h2>{" "}
+              <p className="text-gray-400">
+                Sightreed needs your microphone to follow along while you play.
+                It looks like access was blocked — this is usually a quick fix.
+                Check the permissions icon in your browser&apos;s address bar,
+                allow the microphone, and hit Start when you&apos;re ready.{" "}
+              </p>
+              <button
+                onClick={() => setIsMicDenied(false)}
+                className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg border-0 cursor-pointer"
               >
-                {currentBeat}
-              </div>
-              <div className="text-2xl text-gray-400 mt-4">
-                Count-in: {countdownBeats} beats at {tempo} BPM
-              </div>
-              <div className="text-sm text-gray-500 mt-2">
-                Get ready to play...
+                Okay, I&apos;ll fix it
+              </button>
+            </Modal>
+          )}
+
+          {/* assessment results */}
+
+          {appState === "countdown" && (
+            <div className="fixed inset-0 bg-opacity-0 flex items-center justify-center z-999">
+              <div className="text-center">
+                <div
+                  style={{ color: isBeatOne ? "#22c55e" : "#3b82f6" }}
+                  className="text-9xl font-bold"
+                >
+                  {currentBeat}
+                </div>
+                <div className="text-2xl text-gray-400 mt-4">
+                  Count-in: {countdownBeats} beats at {tempo} BPM
+                </div>
+                <div className="text-sm text-gray-500 mt-2">
+                  Get ready to play...
+                </div>
               </div>
             </div>
-          </div>
-        )}
-        {/* countdown */}
+          )}
+          {/* countdown */}
 
-        {appState === "processing" && (
-          <Modal onClose={() => console.log("idk")}>
-            <h2 className="mt-0">Analyzing Performance...</h2>
-            <p className="text-gray-400">Detecting beat grid from recording.</p>
-          </Modal>
-        )}
-        {/* loading screen after performance */}
+          {appState === "processing" && (
+            <Modal onClose={() => console.log("idk")}>
+              <h2 className="mt-0">Analyzing Performance...</h2>
+              <p className="text-gray-400">
+                Detecting beat grid from recording.
+              </p>
+            </Modal>
+          )}
+          {/* loading screen after performance */}
 
-        <div className="flex flex-row gap-1 items-center">
-          <Image
-            className="size-9 pointer-events-none select-none"
-            src={reedlogo2}
-            alt="Sightreed Logo"
-            width={32}
-            height={32}
-          ></Image>
-          <h1
-            id="sightreed-logo-text"
-            className="text-3xl mt-0 font-semibold pointer-events-none select-none"
-          >
-            Sightreed
-          </h1>
+          <div className="flex flex-row gap-1 items-center">
+            <Image
+              className="size-9 pointer-events-none select-none"
+              src={reedlogo2}
+              alt="Sightreed Logo"
+              width={32}
+              height={32}
+            ></Image>
+            <h1
+              id="sightreed-logo-text"
+              className="text-3xl mt-0 font-semibold pointer-events-none select-none"
+            >
+              Sightreed
+            </h1>
 
-          {appState !== "loading" && (
-            <>
-              <div className="flex gap-3 mt-2 mb-2 ml-4 flex-wrap">
-                <button
-                  onClick={() => handleGenerate()}
-                  disabled={
-                    appState === "performing" || appState === "countdown"
-                  }
-                  style={{
-                    cursor:
-                      appState === "performing" || appState === "countdown"
-                        ? "not-allowed"
-                        : "pointer",
-                    alignSelf: "flex-end",
-                    opacity:
-                      appState === "performing" || appState === "countdown"
-                        ? 0.5
-                        : 1,
-                  }}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold border-0 py-2 px-4 rounded-lg"
-                  title="Generate new exercise"
-                >
-                  <FontAwesomeIcon icon="dice" />
-                </button>
-                {/* new random exercise */}
-
-                {generated && settings && (
+            {appState !== "loading" && (
+              <>
+                <div className="flex gap-3 mt-2 mb-2 ml-4 flex-wrap">
                   <button
-                    aria-label="Share Excerpt"
-                    onClick={handleShare}
+                    onClick={() => handleGenerate()}
                     disabled={
                       appState === "performing" || appState === "countdown"
                     }
@@ -851,181 +867,224 @@ export default function Home() {
                           ? 0.5
                           : 1,
                     }}
-                    className="bg-purple-500 hover:bg-purple-600 text-white border-0 py-2 px-4 rounded-lg font-semibold cursor-pointer"
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold border-0 py-2 px-4 rounded-lg"
+                    title="Generate new exercise"
                   >
-                    <FontAwesomeIcon icon="share-from-square" />
+                    <FontAwesomeIcon icon="dice" />
                   </button>
-                )}
-                {/* share button */}
+                  {/* new random exercise */}
 
-                {generated && appState === "ready" && (
-                  <button
-                    aria-label="Start Performance"
-                    onClick={handleStart}
-                    style={{ alignSelf: "flex-end" }}
-                    className="bg-green-500 hover:bg-green-600 text-white border-0 py-2 px-4 rounded-lg font-semibold cursor-pointer"
-                  >
-                    <FontAwesomeIcon icon="play" />
-                  </button>
-                )}
-                {/* start performance */}
-
-                {appState === "ready" && (
-                  <div
-                    className={
-                      "rounded-lg border border-gray-700 rotate-0 overflow-hidden inline-flex relative " +
-                      (isPlayingTonic ? "button-5s-debounce-anim" : "")
-                    }
-                  >
+                  {generated && settings && (
                     <button
-                      onClick={playTonic}
-                      title={getTonicDisplay()}
-                      style={{ alignSelf: "flex-end" }}
-                      className="bg-gray-900 hover:bg-gray-800 text-white py-2 px-4 rounded-lg cursor-pointer font-semibold select-none overflow-hidden"
+                      aria-label="Share Excerpt"
+                      onClick={handleShare}
+                      disabled={
+                        appState === "performing" || appState === "countdown"
+                      }
+                      style={{
+                        cursor:
+                          appState === "performing" || appState === "countdown"
+                            ? "not-allowed"
+                            : "pointer",
+                        alignSelf: "flex-end",
+                        opacity:
+                          appState === "performing" || appState === "countdown"
+                            ? 0.5
+                            : 1,
+                      }}
+                      className="bg-purple-500 hover:bg-purple-600 text-white border-0 py-2 px-4 rounded-lg font-semibold cursor-pointer"
                     >
-                      <Image
-                        src={tuning_fork}
-                        alt="Tuning Fork"
-                        id="tuning-fork"
-                        width={22}
-                        height={22}
-                      />
+                      <FontAwesomeIcon icon="share-from-square" />
                     </button>
-                  </div>
-                )}
-                {/* tuning fork */}
+                  )}
+                  {/* share button */}
 
-                {appState === "performing" && (
+                  {generated && appState === "ready" && (
+                    <button
+                      aria-label="Start Performance"
+                      onClick={handleStart}
+                      style={{ alignSelf: "flex-end" }}
+                      className="bg-green-500 hover:bg-green-600 text-white border-0 py-2 px-4 rounded-lg font-semibold cursor-pointer"
+                    >
+                      <FontAwesomeIcon icon="play" />
+                    </button>
+                  )}
+                  {/* start performance */}
+
+                  {appState === "ready" && (
+                    <div
+                      className={
+                        "rounded-lg border border-gray-700 rotate-0 overflow-hidden inline-flex relative " +
+                        (isPlayingTonic ? "button-5s-debounce-anim" : "")
+                      }
+                    >
+                      <button
+                        onClick={playTonic}
+                        title={getTonicDisplay()}
+                        style={{ alignSelf: "flex-end" }}
+                        className="bg-gray-900 hover:bg-gray-800 text-white py-2 px-4 rounded-lg cursor-pointer font-semibold select-none overflow-hidden"
+                      >
+                        <Image
+                          src={tuning_fork}
+                          alt="Tuning Fork"
+                          id="tuning-fork"
+                          width={22}
+                          height={22}
+                        />
+                      </button>
+                    </div>
+                  )}
+                  {/* tuning fork */}
+
+                  {appState === "performing" && (
+                    <button
+                      onClick={handleStop}
+                      style={{ alignSelf: "flex-end" }}
+                      className="bg-red-500 hover:bg-red-600 text-white border-0 py-2 px-4 rounded-lg cursor-pointer font-semibold"
+                    >
+                      <FontAwesomeIcon icon="stop" />
+                    </button>
+                  )}
+                  {/* stop and assess */}
+
+                  {assessment && (
+                    <button
+                      onClick={() => setShowResultsModal(true)}
+                      style={{ alignSelf: "flex-end" }}
+                      className="bg-purple-500 hover:bg-purple-600 text-white border-0 py-2 px-4 rounded-lg font-semibold cursor-pointer"
+                    >
+                      <FontAwesomeIcon icon="chart-line" />
+                    </button>
+                  )}
+                  {/* show results */}
+
                   <button
-                    onClick={handleStop}
+                    onClick={() => {
+                      setShowProfileModal(true);
+                    }}
+                    title="Profile"
                     style={{ alignSelf: "flex-end" }}
-                    className="bg-red-500 hover:bg-red-600 text-white border-0 py-2 px-4 rounded-lg cursor-pointer font-semibold"
+                    className="bg-orange-400 hover:bg-orange-500 text-white border-0 border-gray-700 py-2 px-4 rounded-lg cursor-pointer font-semibold"
                   >
-                    <FontAwesomeIcon icon="stop" />
+                    <FontAwesomeIcon icon="user-large" />
                   </button>
-                )}
-                {/* stop and assess */}
 
-                {assessment && (
-                  <button
-                    onClick={() => setShowResultsModal(true)}
-                    style={{ alignSelf: "flex-end" }}
-                    className="bg-purple-500 hover:bg-purple-600 text-white border-0 py-2 px-4 rounded-lg font-semibold cursor-pointer"
-                  >
-                    <FontAwesomeIcon icon="chart-line" />
-                  </button>
-                )}
-                {/* show results */}
-
-                {appState === "ready" && (
-                  <button
-                    onClick={openSettings}
-                    title="Settings"
-                    style={{ alignSelf: "flex-end" }}
-                    className="bg-neutral-400 hover:bg-neutral-500 text-white border-0 border-gray-700 py-2 px-4 rounded-lg cursor-pointer font-semibold"
-                  >
-                    <FontAwesomeIcon icon="gear" />
-                  </button>
-                )}
-                {/* settings */}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {generated && (
-        <div className="mb-6 max-w-275 w-[min(95vw,1100px)] rounded-lg overflow-hidden bg-white">
-          <div className="flex flex-row justify-between gap-1 px-4">
-            {/* <label className="text-xs text-gray-400">Zoom Level</label> */}
-            {/* <FontAwesomeIcon icon="fa-solid fa-magnifying-glass-minus" /> */}
-
-            <p className="text-xs text-zinc-600 my-auto select-none cursor-help" title={"Change your instrument in the settings"}>
-              Instrument: {INSTRUMENTS[instrument].name}
-            </p>
-
-            <div className="flex flex-row gap-1">
-              <button
-                aria-label="Zoom Out"
-                onClick={() => setZoomLevel(Math.max(0.01, zoomLevel - 0.5))}
-                disabled={zoomLevel <= 0.01}
-                className={
-                  "bg-transparent text-gray-900 py-2 rounded-lg font-semibold select-none text-2xl " +
-                  (zoomLevel <= 0.01
-                    ? "opacity-50 cursor-not-allowed"
-                    : "cursor-pointer hover:text-gray-400")
-                }
-              >
-                <FontAwesomeIcon icon="magnifying-glass-minus" />
-              </button>
-              <button
-                aria-label="Zoom In"
-                onClick={() =>
-                  setZoomLevel(Math.floor(Math.min(2, zoomLevel + 0.5) * 2) / 2)
-                }
-                disabled={zoomLevel >= 2}
-                className={
-                  "bg-transparent text-gray-900 py-2 rounded-lg font-semibold select-none text-2xl " +
-                  (zoomLevel >= 2
-                    ? "opacity-50 cursor-not-allowed"
-                    : "cursor-pointer hover:text-gray-400")
-                }
-              >
-                <FontAwesomeIcon icon="magnifying-glass-plus" />
-              </button>
-            </div>
+                  {appState === "ready" && (
+                    <button
+                      onClick={openSettings}
+                      title="Settings"
+                      style={{ alignSelf: "flex-end" }}
+                      className="bg-neutral-400 hover:bg-neutral-500 text-white border-0 border-gray-700 py-2 px-4 rounded-lg cursor-pointer font-semibold"
+                    >
+                      <FontAwesomeIcon icon="gear" />
+                    </button>
+                  )}
+                  {/* settings */}
+                </div>
+              </>
+            )}
           </div>
-          {/* zoom level */}
-
-          <AbcStaff
-            score={generated.score}
-            currentTime={appState === "performing" ? currentTime : 0}
-            tempo={tempo}
-            noteResults={assessment?.noteResults}
-            zoomLevel={zoomLevel}
-            transposeSemitones={transposeSemitones}
-            instrument={instrument}
-          />
-
-          {assessment && (
-            <ScoreRollView
-              score={generated.score}
-              performedNotes={playedNoteBlocks}
-              stateHistory={graphStateHistory}
-              transposeSemitones={transposeSemitones}
-              audioRef={audioRef}
-              isListening={listeningMode}
-              tempo={tempo}
-              playbackOffsetSec={playbackOffsetSec}
-              minMidi={generated.range.minMidi}
-              maxMidi={generated.range.maxMidi}
-            />
-          )}
-          {recordingUrl && (
-            <>
-              <button
-                onClick={toggleListening}
-                style={{ background: listeningMode ? "#10b981" : "#111827" }}
-                className="text-white border border-gray-700 py-2 px-4 rounded-lg font-semibold cursor-pointer mt-3"
-              >
-                {listeningMode ? "Stop Listening" : "Listen to Performance"}
-              </button>
-              <audio
-                ref={audioRef}
-                src={recordingUrl}
-                preload="auto"
-                onEnded={() => {
-                  setListeningMode(false);
-                }}
-                onPause={() => {
-                  setListeningMode(false);
-                }}
-                className="hidden"
-              />
-            </>
-          )}
         </div>
-      )}
-    </main>
+
+        {generated && (
+          <div className="mb-6 max-w-275 w-[min(95vw,1100px)] rounded-lg overflow-hidden bg-white">
+            <div className="flex flex-row justify-between gap-1 px-4">
+              {/* <label className="text-xs text-gray-400">Zoom Level</label> */}
+              {/* <FontAwesomeIcon icon="fa-solid fa-magnifying-glass-minus" /> */}
+
+              <p
+                className="text-xs text-zinc-600 my-auto select-none cursor-help"
+                title={"Change your instrument in the settings"}
+              >
+                Instrument: {INSTRUMENTS[instrument].name}
+              </p>
+
+              <div className="flex flex-row gap-1">
+                <button
+                  aria-label="Zoom Out"
+                  onClick={() => setZoomLevel(Math.max(0.01, zoomLevel - 0.5))}
+                  disabled={zoomLevel <= 0.01}
+                  className={
+                    "bg-transparent text-gray-900 py-2 rounded-lg font-semibold select-none text-2xl " +
+                    (zoomLevel <= 0.01
+                      ? "opacity-50 cursor-not-allowed"
+                      : "cursor-pointer hover:text-gray-400")
+                  }
+                >
+                  <FontAwesomeIcon icon="magnifying-glass-minus" />
+                </button>
+                <button
+                  aria-label="Zoom In"
+                  onClick={() =>
+                    setZoomLevel(
+                      Math.floor(Math.min(2, zoomLevel + 0.5) * 2) / 2,
+                    )
+                  }
+                  disabled={zoomLevel >= 2}
+                  className={
+                    "bg-transparent text-gray-900 py-2 rounded-lg font-semibold select-none text-2xl " +
+                    (zoomLevel >= 2
+                      ? "opacity-50 cursor-not-allowed"
+                      : "cursor-pointer hover:text-gray-400")
+                  }
+                >
+                  <FontAwesomeIcon icon="magnifying-glass-plus" />
+                </button>
+              </div>
+            </div>
+            {/* zoom level */}
+
+            <AbcStaff
+              score={generated.score}
+              currentTime={appState === "performing" ? currentTime : 0}
+              tempo={tempo}
+              noteResults={assessment?.noteResults}
+              zoomLevel={zoomLevel}
+              transposeSemitones={transposeSemitones}
+              instrument={instrument}
+              onLoad={finishSiteLoad}
+            />
+
+            {assessment && (
+              <ScoreRollView
+                score={generated.score}
+                performedNotes={playedNoteBlocks}
+                stateHistory={graphStateHistory}
+                transposeSemitones={transposeSemitones}
+                audioRef={audioRef}
+                isListening={listeningMode}
+                tempo={tempo}
+                playbackOffsetSec={playbackOffsetSec}
+                minMidi={generated.range.minMidi}
+                maxMidi={generated.range.maxMidi}
+              />
+            )}
+            {recordingUrl && (
+              <>
+                <button
+                  onClick={toggleListening}
+                  style={{ background: listeningMode ? "#10b981" : "#111827" }}
+                  className="text-white border border-gray-700 py-2 px-4 rounded-lg font-semibold cursor-pointer mt-3"
+                >
+                  {listeningMode ? "Stop Listening" : "Listen to Performance"}
+                </button>
+                <audio
+                  ref={audioRef}
+                  src={recordingUrl}
+                  preload="auto"
+                  onEnded={() => {
+                    setListeningMode(false);
+                  }}
+                  onPause={() => {
+                    setListeningMode(false);
+                  }}
+                  className="hidden"
+                />
+              </>
+            )}
+          </div>
+        )}
+      </main>
+    </>
   );
 }

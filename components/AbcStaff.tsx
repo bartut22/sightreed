@@ -28,6 +28,7 @@ type Props = {
   zoomLevel: number;
   transposeSemitones?: number;
   instrument: string;
+  onLoad: () => void;
 };
 
 type NoteXMap = Array<{ tickOffset: number; x: number }>;
@@ -160,6 +161,7 @@ export default function AbcStaff({
   zoomLevel,
   transposeSemitones,
   instrument,
+  onLoad
 }: Props) {
   const [isPlaying, setIsPlaying] = useState(false);
   // wrapperRef measures the true available width — never touched by abc.js
@@ -204,6 +206,7 @@ export default function AbcStaff({
     if (!wrapperRef.current || !containerRef.current || !zoomLevelRef.current)
       return;
     // console.log("renderABC() at zoom level " + zoomLevelRef.current);
+    onLoad();
 
     const containerWidth = wrapperRef.current.clientWidth;
     const barsPerLine = containerWidth >= 200 ? 4 : 2;
@@ -214,7 +217,7 @@ export default function AbcStaff({
         ? `%%MIDI transpose ${transposeSemitones}\n${abcString}`
         : abcString;
 
-    // console.log(transposedAbcString);
+    console.log(transposedAbcString);
 
     containerRef.current.innerHTML = "";
 
@@ -255,7 +258,7 @@ export default function AbcStaff({
     }
 
     requestAnimationFrame(rebuildNoteXMap);
-  }, [score, rebuildNoteXMap, transposeSemitones]);
+  }, [score, rebuildNoteXMap, transposeSemitones, onLoad]);
 
   // ── Initial render ───────────────────────────────────────────────────────
   useEffect(() => {

@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 
 export const metadata: Metadata = {
@@ -13,21 +13,46 @@ export const metadata: Metadata = {
   },
 };
 
+export type Profile = { 
+  id: string;
+  username: string;
+  email: string;
+  plan: "free" | "paid";
+  created_at: string;
+}
+
+export function requestDeleteOwnAccount(user: User, profile: Profile) {
+  if (user.id === profile.id) {
+    console.log("Ids match");
+  }
+}
+
 import Home from "./client-page";
+import { User } from "@supabase/supabase-js";
 
 export default async function Page() {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  const { data: todos } = await supabase.from("todos").select();
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  let profile = null;
+
+  if (user) {
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", user?.id).maybeSingle();
+    if (error) {
+      throw new Error("Error fetching profile")
+    } else {
+      profile = data || null;
+    }
+  }
+
   return (
     <>
-      <Home />
-      <ul>
-        {todos?.map((todo) => (
-          <li key={todo.id}>{todo.name}</li>
-        ))}
-      </ul>
+      <Home
+      user={user}
+      profile={profile}
+      />
     </>
   );
 }
