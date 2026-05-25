@@ -298,28 +298,31 @@ function cellDifficulty(
     let durScore = 0;
     switch (dur) {
       case "h":
-        durScore = 0.3;
+        durScore = 0.3; // 2 beats => 0.3
         break;
       case "h.":
-        durScore = 0.4;
+        durScore = 0.4; // 2 beats => 0.267
         break;
       case "q":
-        durScore = 0.4;
+        durScore = 0.4; // 2 beats => 0.8
         break;
       case "8":
-        durScore = 0.5;
+        durScore = 0.5; // 2 beats ==> 2
         break;
       case "16":
-        durScore = 0.4;
+        durScore = 0.4; // 2 beats ==> 3.2
         break;
       case "q.":
-        durScore = 0.5;
+        durScore = 0.5; // 2 beats ==> 0.67
         break;
       case "8t":
-        durScore = 0.8;
+        durScore = 0.8; // 2 beats ==> 4.8
+        break;
+      case "qt":
+        durScore = 0.9; // 2 beats ==> 2.7
         break;
       case "8.":
-        durScore = 1;
+        durScore = 1; // 2 beats ==> 2.67
         break;
       default:
         break;

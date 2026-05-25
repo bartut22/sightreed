@@ -60,6 +60,26 @@ export const BASE_CELLS: Cell[] = [
     minDifficulty: 1,
   },
   {
+    name: "climbDown",
+    scaleDegs: [0, -1, -2],
+    durs: ["q", "8", "8"],
+    minDifficulty: 1,
+  },
+  {
+    name: "rest",
+    scaleDegs: [0],
+    durs: ["q"],
+    minDifficulty: 1,
+    isRest: [true]
+  },
+  {
+    name: "pickup",
+    scaleDegs: [0, 1],
+    durs: ["8", "8"],
+    minDifficulty: 2,
+    isRest: [true, false]
+  },
+  {
     name: "sixth",
     scaleDegs: [-2],
     durs: ["q"],
@@ -72,8 +92,32 @@ export const BASE_CELLS: Cell[] = [
     minDifficulty: 1,
   },
   {
-    name: "root8ths",
-    scaleDegs: [0, 0],
+    name: "second",
+    scaleDegs: [1],
+    durs: ["q"],
+    minDifficulty: 1,
+  },
+  {
+    name: "fourth",
+    scaleDegs: [3],
+    durs: ["q"],
+    minDifficulty: 1,
+  },
+  {
+    name: "sus2",
+    scaleDegs: [1, 0],
+    durs: ["8", "8"],
+    minDifficulty: 2,
+  },
+  {
+    name: "zigzagOnce",
+    scaleDegs: [2, 0],
+    durs: ["8", "8"],
+    minDifficulty: 2,
+  },
+  {
+    name: "skip8ths",
+    scaleDegs: [3, 0],
     durs: ["8", "8"],
     minDifficulty: 2,
   },
@@ -193,9 +237,14 @@ export const CELL_UPGRADES: Record<string, CellUpgrade[]> = {
       durs: ["q", "8", "8", "q"],
     },
     {
-      minDifficulty: 4,
+      minDifficulty: 3,
       scaleDegs: [0, -1, -2, -3, -2],
       durs: ["8", "8", "8", "8", "q"],
+    },
+    {
+      minDifficulty: 4,
+      scaleDegs: [0, -2, -3, -2],
+      durs: ["8", "q", "8", "q",],
     },
     {
       minDifficulty: 4,
@@ -280,8 +329,12 @@ export const CELL_UPGRADES: Record<string, CellUpgrade[]> = {
       scaleDegs: [0, -1, -2, -3],
       durs: ["8", "8", "8", "8"],
     },
+    { minDifficulty: 3, scaleDegs: [2, 3, 4, 3], durs: ["8", "8", "8", "8"] },
+    { minDifficulty: 3, scaleDegs: [1, 2, 3, 2], durs: ["8", "8", "8", "8"] },
     { minDifficulty: 3, scaleDegs: [0, 2, 3, 5], durs: ["8", "8", "8", "8"] },
     { minDifficulty: 3, scaleDegs: [0, 1, 3, 4], durs: ["8", "8", "8", "8"] },
+    { minDifficulty: 3, scaleDegs: [0, 2, 3], durs: ["8", "q", "8"] },
+    { minDifficulty: 3, scaleDegs: [1, 2, 3], durs: ["qt", "qt", "qt"] },
     {
       minDifficulty: 4,
       scaleDegs: [0, 1, 2, 3, 1],
@@ -347,11 +400,28 @@ export const CELL_UPGRADES: Record<string, CellUpgrade[]> = {
   climb: [
     { minDifficulty: 1, scaleDegs: [0, 1, 0], durs: ["q", "8", "8"] },
     { minDifficulty: 2, scaleDegs: [0, -1, 1], durs: ["8", "8", "q"] },
+    { minDifficulty: 2, scaleDegs: [-1, 0, 1], durs: ["q", "8", "8"] },
+    { minDifficulty: 2, scaleDegs: [1, 2, 3], durs: ["q", "8", "8"] },
     { minDifficulty: 3, scaleDegs: [0, -2, 1], durs: ["q", "8", "8"] },
     { minDifficulty: 4, scaleDegs: [0, -3, 3], durs: ["q", "8", "8"] },
     {
       minDifficulty: 4,
-      scaleDegs: [0, -1, 0, 1, 2, 3],
+      scaleDegs: [0, 4, 2, 0, -1],
+      durs: ["8", "16", "8", "16", "8" ],
+    },
+    {
+      minDifficulty: 4,
+      scaleDegs: [0, 2, 1, 0, -1, -2],
+      durs: ["8", "16", "16", "16", "16", "8"],
+    },
+    {
+      minDifficulty: 4,
+      scaleDegs: [0, 4, 5, 6, 4, 2],
+      durs: ["8", "16", "16", "16", "16", "8"],
+    },
+    {
+      minDifficulty: 4,
+      scaleDegs: [0, 3, 2, 1, 0, -1],
       durs: ["8", "16", "16", "16", "16", "8"],
     },
     {
@@ -366,10 +436,15 @@ export const CELL_UPGRADES: Record<string, CellUpgrade[]> = {
     },
     { minDifficulty: 5, scaleDegs: [-4, 0, 4], durs: ["q", "8", "8"] },
   ],
+  climbDown: [
+    { minDifficulty: 1, scaleDegs: [-1, -2, -3], durs: ["q", "8", "8"]},
+    { minDifficulty: 1, scaleDegs: [2, 1, 0], durs: ["q", "8", "8"]},
+  ],
   swing: [
     { minDifficulty: 2, scaleDegs: [0, 2, 0], durs: ["q.", "8", "q"] },
     { minDifficulty: 2, scaleDegs: [0, 2, 3], durs: ["q.", "8", "q"] },
     { minDifficulty: 3, scaleDegs: [0, 2, 1, 0], durs: ["q", "8.", "16", "q"] },
+    { minDifficulty: 3, scaleDegs: [1, 4, 2, 0], durs: ["q", "8.", "16", "q"] },
     { minDifficulty: 3, scaleDegs: [0, 3, 4], durs: ["q.", "8", "q"] },
     { minDifficulty: 3, scaleDegs: [0, 2, 4], durs: ["q.", "8", "q"] },
     { minDifficulty: 3, scaleDegs: [2, 4, 7], durs: ["q.", "8", "q"] },
@@ -516,13 +591,14 @@ export const CELL_UPGRADES: Record<string, CellUpgrade[]> = {
   ],
   leap5th: [
     { minDifficulty: 4, scaleDegs: [0, -4, -2], durs: ["q", "q", "h"] },
-    { minDifficulty: 4, scaleDegs: [0, 4, 3], durs: ["q", "q", "h"] },
-    { minDifficulty: 4, scaleDegs: [0, 5, 3], durs: ["q", "q", "h"] },
-    // { minDifficulty: 4, scaleDegs: [0, 4, 2], durs: ['8', '8', 'q', 'h'] },
+    { minDifficulty: 4, scaleDegs: [-1, 4, 3], durs: ["q", "q", "h"] },
+    { minDifficulty: 4, scaleDegs: [1, 5, 4], durs: ["q", "q", "h"] },
     { minDifficulty: 4, scaleDegs: [0, 4, 2, 0], durs: ["q", "q", "q", "q"] },
-    { minDifficulty: 5, scaleDegs: [0, 7, 4], durs: ["q", "q", "h"] },
-    // { minDifficulty: 5, scaleDegs: [0, 4, 2, 4], durs: ['q', 'q', '8', '8', 'q'] },
-    // { minDifficulty: 5, scaleDegs: [0, 4, 2], durs: ['q', '16', '16', '16', '16', 'h'] },
+    { minDifficulty: 4, scaleDegs: [0, 4, 2, 3, 4], durs: ['q', 'q', '8', '8', 'q'] },
+    { minDifficulty: 4, scaleDegs: [0, 7, 4], durs: ["q", "q", "h"] },
+    { minDifficulty: 5, scaleDegs: [6, 5, 4], durs: ['q', 'q', 'h'] },
+    { minDifficulty: 5, scaleDegs: [-1, 0, 4, 3, 2, 1], durs: ['8', '8', 'q', '8', 'q', '8'] },
+    { minDifficulty: 5, scaleDegs: [0, 7, 6, 5, 4, 3], durs: ['q', '16', '16', '16', '16', 'h'] },
     {
       minDifficulty: 5,
       scaleDegs: [0, 4, 5, 4, 2],
@@ -532,7 +608,7 @@ export const CELL_UPGRADES: Record<string, CellUpgrade[]> = {
   ],
   tripletRun: [
     { minDifficulty: 4, scaleDegs: [0, -1, -2], durs: ["8t", "8t", "8t"] },
-    { minDifficulty: 4, scaleDegs: [0, 2, 4], durs: ["8t", "8t", "8t"] },
+    { minDifficulty: 4, scaleDegs: [1, 2, 4], durs: ["8t", "8t", "8t"] },
     { minDifficulty: 4, scaleDegs: [0, 1, 3], durs: ["8t", "8t", "8t"] },
     { minDifficulty: 4, scaleDegs: [2, 1, 0], durs: ["8t", "8t", "8t"] },
     { minDifficulty: 5, scaleDegs: [0, 2, 1], durs: ["8t", "8t", "8t"] },

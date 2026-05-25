@@ -6,6 +6,7 @@ export type Duration =
   | "8." // Dotted eighth
   | "16" // Sixteenth
   | "8t" // Eighth triplet
+  | "qt" // Quarter triplet
   | "h" // Half note
   | "h."; // Dotted half
 
@@ -169,7 +170,8 @@ export type Score = {
 // Tick system (24 ticks per quarter for triplet support)
 export const TICKS_PER_QUARTER = 48;
 export const TICKS_PER_EIGHTH = 24;
-export const TICKS_PER_TRIPLET = 16;
+export const TICKS_PER_EIGHTH_TRIPLET = 16;
+export const TICKS_PER_QUARTER_TRIPLET = 32;
 export const TICKS_PER_DOTTED_QUARTER = 72;
 export const TICKS_PER_DOTTED_EIGHTH = 36;
 export const TICKS_PER_HALF = 96;
@@ -189,7 +191,9 @@ export function durToTicks(d: Duration): number {
     case "8.":
       return TICKS_PER_DOTTED_EIGHTH;
     case "8t":
-      return TICKS_PER_TRIPLET;
+      return TICKS_PER_EIGHTH_TRIPLET;
+    case "qt":
+      return TICKS_PER_QUARTER_TRIPLET;
     case "h":
       return TICKS_PER_HALF;
     case "h.":

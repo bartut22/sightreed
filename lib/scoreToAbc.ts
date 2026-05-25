@@ -1,5 +1,17 @@
-import type { Score, Event, PitchSpelling, Duration, Measure, KeySig } from "./notation"
-import { durToTicks, getPreferredSpellings, pitchToMidi, TICKS_PER_QUARTER } from "./notation"
+import type {
+  Score,
+  Event,
+  PitchSpelling,
+  Duration,
+  Measure,
+  KeySig,
+} from "./notation";
+import {
+  durToTicks,
+  getPreferredSpellings,
+  pitchToMidi,
+  TICKS_PER_QUARTER,
+} from "./notation";
 
 const BASE_UNIT = 8 // L:1/8
 
@@ -13,8 +25,12 @@ const BASE_UNIT = 8 // L:1/8
  */
 function pitchToAbc(p: PitchSpelling, key: KeySig): string {
   const accidental = shouldEmitAccidental(p, key)
-    ? (p.alter === 1 ? "^" : p.alter === -1 ? "_" : "=")
-    : ""
+    ? p.alter === 1
+      ? "^"
+      : p.alter === -1
+        ? "_"
+        : "="
+    : "";
 
   if (p.octave >= 5) {
     // lowercase, apostrophes for each octave above 5
@@ -46,16 +62,54 @@ function shouldEmitAccidental(pitch: PitchSpelling, key: KeySig): boolean {
  */
 function durToAbcLength(dur: Duration): string {
   switch (dur) {
-    case "16":  return "/2"
-    case "8":   return ""
-    case "8.":  return "3/2"
-    case "q":   return "2"
-    case "q.":  return "3"
-    case "h":   return "4"
-    case "h.":  return "6"
-    case "8t":  return ""     // handled in triplet group
-    default:    return ""
+    case "16":
+      return "/2";
+    case "8":
+      return "";
+    case "8.":
+      return "3/2";
+    case "q":
+      return "2";
+    case "q.":
+      return "3";
+    case "h":
+      return "4";
+    case "h.":
+      return "6";
+    case "qt":
+      return "2"; // handled in triplet group
+    case "8t":
+      return ""; // handled in triplet group
+    default:
+      return "";
   }
+}
+
+function splitCrossBeatEvents(events: Event[]): Event[] {
+  const result: Event[] = [];
+  let cursor = 0;
+
+  for (const ev of events) {
+    const ticks = durToTicks(ev.dur);
+    const beatPos = cursor % TICKS_PER_QUARTER;
+
+    if (
+      ev.dur === "8" &&
+      beatPos !== 0 &&
+      beatPos + ticks > TICKS_PER_QUARTER
+    ) {
+      // Split into two tied 16ths
+      const first: Event = { ...ev, dur: "16", tiedTo: true };
+      const second: Event = { ...ev, dur: "16" };
+      result.push(first, second);
+    } else {
+      result.push(ev);
+    }
+
+    cursor += ticks;
+  }
+
+  return result;
 }
 
 /**
@@ -65,6 +119,7 @@ function durToAbcLength(dur: Duration): string {
  * Consecutive 8t events are grouped with (3 prefix.
  */
 function eventsToAbc(events: Event[], key: KeySig): string {
+  events = splitCrossBeatEvents(events);
   // We'll build "beat groups" — each group is tokens that should be beamed together.
   // Groups are separated by spaces; tokens within a group are joined with no space.
   const beatGroups: string[][] = []
@@ -83,35 +138,47 @@ function eventsToAbc(events: Event[], key: KeySig): string {
     const ev = events[i]
 
     // ── Triplet group ──────────────────────────────────────────────────────
-    if (ev.dur === "8t") {
-      // Triplets span exactly one quarter beat (3 × 1/3 quarter = 1 quarter).
-      // Flush current group first so triplet starts cleanly.
-      flushGroup()
-      ticksInBeat = 0
+    if (ev.dur === "8t" || ev.dur === "qt") {
+      flushGroup();
+      ticksInBeat = 0;
 
-      const tripletGroup: Event[] = []
-      while (i < events.length && events[i].dur === "8t") {
-        tripletGroup.push(events[i])
-        i++
+      while (
+        i < events.length &&
+        (events[i].dur === "8t" || events[i].dur === "qt")
+      ) {
+        // Collect one bracket's worth: accumulate until real ticks % TICKS_PER_QUARTER === 0
+        const bracketEvents: Event[] = [];
+        let bracketTicks = 0;
+
+        while (
+          i < events.length &&
+          (events[i].dur === "8t" || events[i].dur === "qt")
+        ) {
+          const tev = events[i];
+          const tevTicks = durToTicks(tev.dur);
+          bracketEvents.push(tev);
+          bracketTicks += tevTicks;
+          i++;
+          if (bracketTicks % TICKS_PER_QUARTER === 0) break;
+        }
+
+        // r = number of events in this bracket
+        const r = bracketEvents.length;
+
+        // Start new group with the (3:2:r prefix
+        const noteTokens = bracketEvents.map((tev) => {
+          const len = durToAbcLength(tev.dur);
+          if (tev.kind === "rest") return `z${len}`;
+          const tie = tev.tiedTo ? "-" : "";
+          return `${pitchToAbc(tev.pitch, key)}${len}${tie}`;
+        });
+        currentGroup.push(`(3:2:${r} ${noteTokens.join("")}`);
+
+        flushGroup();
       }
 
-      // Each (3 group of 3 is one beat — emit as one beam group
-      for (let t = 0; t < tripletGroup.length; t++) {
-        if (t % 3 === 0) {
-          if (t > 0) flushGroup()
-          currentGroup.push("(3")
-        }
-        const tev = tripletGroup[t]
-        if (tev.kind === "rest") {
-          currentGroup.push("z")
-        } else {
-          const tie = tev.tiedTo ? "-" : ""
-          currentGroup.push(`${pitchToAbc(tev.pitch, key)}${tie}`)
-        }
-      }
-      flushGroup()
-      ticksInBeat = 0
-      continue
+      ticksInBeat = 0;
+      continue;
     }
 
     // ── Normal event ───────────────────────────────────────────────────────
