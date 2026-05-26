@@ -16,7 +16,7 @@
     "@fortawesome/react-fontawesome": "^3.3.1",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.1",
-    "abcjs": "^6.6.2",
+    "abcjs": "^6.6.3",
     "next": "16.1.1",
     "pitchy": "^4.1.0",
     "postcss": "^8.5.8",

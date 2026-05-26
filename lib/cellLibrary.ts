@@ -342,6 +342,21 @@ export const CELL_UPGRADES: Record<string, CellUpgrade[]> = {
     },
     {
       minDifficulty: 4,
+      scaleDegs: [1, 2, 3, 4],
+      durs: ["8t", "8t", "8t", "q"],
+    },
+    {
+      minDifficulty: 4,
+      scaleDegs: [2, 3, 4, 5],
+      durs: ["16", "16", "8", "q"],
+    },
+    {
+      minDifficulty: 4,
+      scaleDegs: [1, 2, 3, 5, 7],
+      durs: ["8t", "8t", "8t", "8", "8"],
+    },
+    {
+      minDifficulty: 4,
       scaleDegs: [0, 1, 2, 3, 4],
       durs: ["8t", "8t", "8t", "8", "8"],
     },
@@ -416,9 +431,14 @@ export const CELL_UPGRADES: Record<string, CellUpgrade[]> = {
     },
     {
       minDifficulty: 4,
-      scaleDegs: [0, 4, 5, 6, 4, 2],
-      durs: ["8", "16", "16", "16", "16", "8"],
+      scaleDegs: [0, 4, 5, 4, 2],
+      durs: ["8", "16", "16", "8", "8"],
     },
+    // {
+    //   minDifficulty: 4,
+    //   scaleDegs: [0, 4, 5, 6, 4, 2],
+    //   durs: ["8", "16", "16", "16", "16", "8"],
+    // },
     {
       minDifficulty: 4,
       scaleDegs: [0, 3, 2, 1, 0, -1],
@@ -549,7 +569,7 @@ export const CELL_UPGRADES: Record<string, CellUpgrade[]> = {
     },
     { minDifficulty: 3, scaleDegs: [5, 3, 2, 0], durs: ["8", "8", "8", "8"] },
     { minDifficulty: 3, scaleDegs: [4, 2, 0, -1], durs: ["8", "8", "8", "8"] },
-    // { minDifficulty: 4, scaleDegs: [4, 2, 1, 0], durs: ['8', '16', '16', '8', '8'] },
+    { minDifficulty: 4, scaleDegs: [3, 0, -1, -2], durs: ["8", "8", "8", "8"] },
     { minDifficulty: 4, scaleDegs: [7, 4, 2, 0], durs: ["8", "8", "8", "8"] },
     {
       minDifficulty: 4,
@@ -611,6 +631,10 @@ export const CELL_UPGRADES: Record<string, CellUpgrade[]> = {
     { minDifficulty: 4, scaleDegs: [1, 2, 4], durs: ["8t", "8t", "8t"] },
     { minDifficulty: 4, scaleDegs: [0, 1, 3], durs: ["8t", "8t", "8t"] },
     { minDifficulty: 4, scaleDegs: [2, 1, 0], durs: ["8t", "8t", "8t"] },
+    { minDifficulty: 4, scaleDegs: [1, 0, -1], durs: ["8t", "8t", "8t"] },
+    { minDifficulty: 4, scaleDegs: [2, 3, 5], durs: ["8t", "8t", "8t"] },
+    { minDifficulty: 4, scaleDegs: [1, 2, 4], durs: ["8t", "8t", "8t"] },
+    { minDifficulty: 4, scaleDegs: [1, 0, -1], durs: ["8t", "8t", "8t"] },
     { minDifficulty: 5, scaleDegs: [0, 2, 1], durs: ["8t", "8t", "8t"] },
     { minDifficulty: 5, scaleDegs: [0, 1, 0], durs: ["8t", "8t", "8t"] },
     { minDifficulty: 5, scaleDegs: [0, 3, 5], durs: ["8t", "8t", "8t"] },

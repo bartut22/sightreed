@@ -7,7 +7,6 @@ import { scoreToAbc } from "../lib/scoreToAbc";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import abcjs, { MidiBuffer } from "abcjs";
 import { getAudioContext, initAudioContext } from "@/lib/audio";
-import { Instrument } from "./SettingsModal";
 
 // ── Config ───────────────────────────────────────────────────────────────────
 
