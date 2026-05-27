@@ -123,7 +123,7 @@ const INSTRUMENT_RANGES: Record<
 // Semitone spread around the tonic, per difficulty
 const DIFFICULTY_SPREAD: Record<number, { below: number; above: number }> = {
   1: { below: 3, above: 7 }, // tonic to dominant only
-  2: { below: 3, above: 12 }, // one octave up
+  2: { below: 5, above: 12 }, // one octave up
   3: { below: 7, above: 12 }, // dominant below to octave above
   4: { below: 12, above: 12 }, // full octave each way
   5: { below: 12, above: 12 }, // crazy
@@ -199,16 +199,16 @@ function assertNoteAlignment(
 
 // Base cells
 for (const c of BASE_CELLS) {
-  assertRestAlignment(c.name, c.durs, c.isRest);
-  assertNoteAlignment(c.name, c.durs, c.scaleDegs);
+  assertRestAlignment(c.baseName, c.durs, c.isRest);
+  assertNoteAlignment(c.baseName, c.durs, c.scaleDegs);
 
-  const upgrades = CELL_UPGRADES[c.name];
+  const upgrades = CELL_UPGRADES[c.baseName];
   if (upgrades) {
     const cellMinDiff = c.minDifficulty ?? 1;
     const upgradeMinDiff = Math.min(...upgrades.map((u) => u.minDifficulty));
     if (cellMinDiff > upgradeMinDiff) {
       throw new Error(
-        `❌ ${c.name}: base minDifficulty (${cellMinDiff}) > minimum upgrade difficulty (${upgradeMinDiff})`,
+        `❌ ${c.baseName}: base minDifficulty (${cellMinDiff}) > minimum upgrade difficulty (${upgradeMinDiff})`,
       );
     }
   }
@@ -216,7 +216,7 @@ for (const c of BASE_CELLS) {
 
 // Upgrades
 for (const [baseName, upgrades] of Object.entries(CELL_UPGRADES)) {
-  const base = BASE_CELLS.find((c) => c.name === baseName);
+  const base = BASE_CELLS.find((c) => c.baseName === baseName);
   if (!base) {
     throw new Error(`Upgrade defined for unknown base cell: ${baseName}`);
   }
@@ -258,7 +258,7 @@ function debugUpgrade(
   bar: number,
   cell: number,
   base: string,
-  upgrade?: CellUpgrade,
+  upgrade?: CellUpgrade | Cell,
   predicted?: number,
 ) {
   if (!DEBUG_UPGRADES) return;
@@ -381,6 +381,7 @@ function totalDifficulty(cells: (Cell | CellUpgrade)[]): number {
 
 function generatePhraseOnce(settings: GenerationSettings = {}): {
   score: Score;
+  cells: (CellUpgrade | Cell)[];
   seed: number;
   adjDifficulty: number;
   overallDifficulty: number;
@@ -507,16 +508,14 @@ function generatePhraseOnce(settings: GenerationSettings = {}): {
   });
   const baseTotalRaw = baseDifficulties.reduce((sum, d) => sum + d, 0);
 
-  let upgraded: CellUpgrade[][] = [];
+  let upgraded: (CellUpgrade | Cell)[][] = [];
 
   // If the skeleton already exceeds the ceiling, skip upgrades entirely.
   if (baseTotalRaw >= targetMaxRaw) {
     console.warn(
       `[difficulty] baseTotalRaw (${baseTotalRaw.toFixed(2)}) >= targetMaxRaw (${targetMaxRaw.toFixed(2)}), skipping upgrades`,
     );
-    upgraded = skeleton.map((measure) =>
-      measure.map((cell) => cell as CellUpgrade),
-    );
+    upgraded = skeleton;
     // jump straight to Phase 3...
   } else {
     // Running difficulty budget (in raw units) for the upgrade phase.
@@ -539,56 +538,98 @@ function generatePhraseOnce(settings: GenerationSettings = {}): {
         const remainingBaseRaw = baseTotalRaw - (basePrefixRaw + baseDiff);
 
         const upgrades =
-          CELL_UPGRADES[cell.name]?.filter(
+          CELL_UPGRADES[cell.baseName]?.filter(
             (u) => u.minDifficulty <= difficulty,
           ) ?? [];
 
         // Always include the "no upgrade" option (original cell) as a candidate.
-        const candidates: CellUpgrade[] = [cell as CellUpgrade, ...upgrades];
+        const candidates: (CellUpgrade | Cell)[] = [cell, ...upgrades];
 
         const cellsLeft = Math.max(totalCells - globalIndex, 1);
         const perCellMin = remainingBudgetLow / cellsLeft;
         const perCellMax = remainingBudgetHigh / cellsLeft;
         const perCellTarget = (perCellMin + perCellMax) / 2;
 
-        let bestCandidate = candidates[0];
-        let bestScore = Number.POSITIVE_INFINITY;
-        let bestTotalRaw =
-          scoreSoFarRaw + cellDifficulty(bestCandidate) + remainingBaseRaw;
+        // let bestCandidate = candidates[0];
+        // let bestScore = Number.POSITIVE_INFINITY;
+        // let bestTotalRaw =
+        //   scoreSoFarRaw + cellDifficulty(bestCandidate) + remainingBaseRaw;
 
-        for (const cand of candidates) {
+        // for (const cand of candidates) {
+        //   const candDiff = cellDifficulty(cand);
+        //   const candidateTotalRaw = scoreSoFarRaw + candDiff + remainingBaseRaw;
+
+        //   // Primary objective: stay close to the global mid-target.
+        //   const globalDeviation = Math.abs(candidateTotalRaw - targetMidRaw);
+
+        //   // Secondary objective: keep per-cell changes roughly inside the
+        //   // remaining budget band.
+        //   const deltaFromBase = candDiff - baseDiff;
+        //   const perCellDeviation = Math.abs(deltaFromBase - perCellTarget);
+
+        //   // Prefer candidates that stay within the overall min/max band.
+        //   const inBand =
+        //     candidateTotalRaw >= targetMinRaw &&
+        //     candidateTotalRaw <= targetMaxRaw;
+
+        //   const bestInBand =
+        //     bestTotalRaw >= targetMinRaw && bestTotalRaw <= targetMaxRaw;
+
+        //   let score = globalDeviation + 0.25 * perCellDeviation;
+
+        //   if (!bestInBand && inBand) {
+        //     // Strongly prefer staying within the band when the current best is out.
+        //     score -= 1;
+        //   }
+
+        //   if (score < bestScore) {
+        //     bestScore = score;
+        //     bestCandidate = cand;
+        //     bestTotalRaw = candidateTotalRaw;
+        //   }
+        // }
+
+        const temperature = 0.3;
+
+        const scoredCandidates = candidates.map((cand) => {
           const candDiff = cellDifficulty(cand);
           const candidateTotalRaw = scoreSoFarRaw + candDiff + remainingBaseRaw;
-
-          // Primary objective: stay close to the global mid-target.
           const globalDeviation = Math.abs(candidateTotalRaw - targetMidRaw);
-
-          // Secondary objective: keep per-cell changes roughly inside the
-          // remaining budget band.
           const deltaFromBase = candDiff - baseDiff;
           const perCellDeviation = Math.abs(deltaFromBase - perCellTarget);
-
-          // Prefer candidates that stay within the overall min/max band.
           const inBand =
             candidateTotalRaw >= targetMinRaw &&
             candidateTotalRaw <= targetMaxRaw;
+          const score = globalDeviation + 0.25 * perCellDeviation;
+          return { cand, score, candidateTotalRaw, inBand };
+        });
 
-          const bestInBand =
-            bestTotalRaw >= targetMinRaw && bestTotalRaw <= targetMaxRaw;
+        const anyInBand = scoredCandidates.some((s) => s.inBand);
 
-          let score = globalDeviation + 0.25 * perCellDeviation;
+        const adjustedScores = scoredCandidates.map((s) => ({
+          ...s,
+          adjustedScore: s.score + (anyInBand && !s.inBand ? 1000 : 0),
+        }));
 
-          if (!bestInBand && inBand) {
-            // Strongly prefer staying within the band when the current best is out.
-            score -= 1;
-          }
+        const negScores = adjustedScores.map((s) => -s.adjustedScore);
+        const maxNeg = Math.max(...negScores);
+        const weights = negScores.map((s) =>
+          Math.exp((s - maxNeg) / temperature),
+        );
+        const totalWeight = weights.reduce((a, b) => a + b, 0);
 
-          if (score < bestScore) {
-            bestScore = score;
-            bestCandidate = cand;
-            bestTotalRaw = candidateTotalRaw;
+        let r = rng() * totalWeight;
+        let chosen = adjustedScores[adjustedScores.length - 1];
+        for (let i = 0; i < adjustedScores.length; i++) {
+          r -= weights[i];
+          if (r <= 0) {
+            chosen = adjustedScores[i];
+            break;
           }
         }
+
+        const bestCandidate = chosen.cand;
+        const bestTotalRaw = chosen.candidateTotalRaw;
 
         const chosenDiff = cellDifficulty(bestCandidate);
         const chosenTotalRaw = scoreSoFarRaw + chosenDiff + remainingBaseRaw;
@@ -604,13 +645,13 @@ function generatePhraseOnce(settings: GenerationSettings = {}): {
 
         // Only mark `baseName` when we actually choose an upgrade.
         if (bestCandidate !== candidates[0]) {
-          bestCandidate.baseName = cell.name;
+          bestCandidate.baseName = cell.baseName;
         }
 
         debugUpgrade(
           m,
           c,
-          cell.name,
+          cell.baseName,
           bestCandidate !== candidates[0] ? bestCandidate : undefined,
           chosenDiff,
         );
@@ -625,10 +666,10 @@ function generatePhraseOnce(settings: GenerationSettings = {}): {
         upgraded.map((measure, m) =>
           measure.map((cell, c) => {
             const baseName =
-              BASE_CELLS.find((b) => b.name === (cell as any).baseName)?.name ??
-              (cell as any).name;
+              BASE_CELLS.find((b) => b.baseName === cell.baseName)?.baseName ??
+              cell.baseName;
 
-            const isUpgrade = (cell as any).baseName !== undefined;
+            const isUpgrade = cell.baseName !== undefined;
 
             return {
               bar: m,
@@ -731,32 +772,33 @@ function generatePhraseOnce(settings: GenerationSettings = {}): {
     });
   }
 
-  if (adjDifficulty < difficulty || adjDifficulty > difficulty + 1) {
-    console.warn(
-      `Score ${adjDifficulty.toFixed(2)} is out of range ${difficulty}-${difficulty + 1}!`,
-    );
-  }
+  // if (adjDifficulty < difficulty || adjDifficulty > difficulty + 1) {
+  //   console.warn(
+  //     `Score ${adjDifficulty.toFixed(2)} is out of range ${difficulty}-${difficulty + 1}!`,
+  //   );
+  // }
 
   // console.log(
   //   `[difficulty] adjusted difficulty = ${adjDifficulty.toFixed(2)} (expected between ${difficulty} and ${difficulty + 1})`
   // )
 
-  console.debug(
-    `[difficulty] Final upgraded:`,
-    upgraded.flat().map((cell, i) => ({
-      index: i,
-      name: cell.baseName,
-      difficulty: cellDifficulty(cell).toFixed(2),
-    })),
-    flatSkeleton.map((cell, i) => ({
-      index: i,
-      name: cell.name,
-      difficulty: cellDifficulty(cell).toFixed(2),
-    })),
-  );
+  // console.debug(
+  //   `[difficulty] Final upgraded:`,
+  //   upgraded.flat().map((cell, i) => ({
+  //     index: i,
+  //     name: cell.baseName,
+  //     difficulty: cellDifficulty(cell).toFixed(2),
+  //   })),
+  //   flatSkeleton.map((cell, i) => ({
+  //     index: i,
+  //     name: cell.baseName,
+  //     difficulty: cellDifficulty(cell).toFixed(2),
+  //   })),
+  // );
 
   return {
     score: { measures, key },
+    cells: upgraded.flat(),
     seed,
     adjDifficulty,
     overallDifficulty,
@@ -776,13 +818,37 @@ type GeneratePhraseMeta = {
 
 const DIFFICULTY_EPSILON = 0.05;
 const MAX_DIFFICULTY_RETRIES = 20;
+const RETURN_FAKE_PHRASE = false; // we are optimizing the other stuff rn
 
 export function generatePhrase(settings: GenerationSettings = {}): {
   score: Score;
+  cells: (CellUpgrade | Cell)[];
   seed: number;
   meta?: GeneratePhraseMeta;
   range?: { minMidi: number; maxMidi: number };
 } {
+  if (RETURN_FAKE_PHRASE) {
+    return {
+    score: {
+        key: { tonic: "C", mode: "major" },
+        measures: [
+          {
+            timeSig: { beats: 4, beatUnit: 4 },
+            events: [
+              { kind: "note", dur: "q", pitch: midiToPitchSpellingInKey(60 + Math.floor(Math.random() * 12), { tonic: "C", mode: "major" }) },
+              { kind: "note", dur: "q", pitch: midiToPitchSpellingInKey(62 + Math.floor(Math.random() * 12), { tonic: "C", mode: "major" }) },
+              { kind: "note", dur: "q", pitch: midiToPitchSpellingInKey(64 + Math.floor(Math.random() * 12), { tonic: "C", mode: "major" }) },
+              { kind: "note", dur: "q", pitch: midiToPitchSpellingInKey(65 + Math.floor(Math.random() * 12), { tonic: "C", mode: "major" }) },
+            ],
+          },
+        ],
+      },
+      cells: Array.from({ length: 20 }, (_, i) => BASE_CELLS[i % BASE_CELLS.length]),
+      seed: 124,
+      range: { minMidi: 60, maxMidi: 88 },
+  };
+  }
+
   const requestedDifficulty = settings.difficulty ?? 2;
   const baseSeed = settings.seed ?? Math.floor(Math.random() * 2 ** 31);
 
@@ -802,6 +868,7 @@ export function generatePhrase(settings: GenerationSettings = {}): {
     if (inRange) {
       return {
         score: result.score,
+        cells: result.cells,
         seed: baseSeed,
         range: result.range,
         meta: {
@@ -850,6 +917,7 @@ export function generatePhrase(settings: GenerationSettings = {}): {
 
   return {
     score: best.score,
+    cells: best.cells,
     seed: baseSeed,
     range: best.range,
     meta,

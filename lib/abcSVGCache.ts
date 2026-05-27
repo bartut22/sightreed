@@ -1,0 +1,1 @@
+export const abcSVGNodeCache = new Map<string, SVGSVGElement>();

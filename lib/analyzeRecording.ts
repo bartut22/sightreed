@@ -1,7 +1,7 @@
 import { PitchDetector } from 'pitchy'
 import { spectralCentroid, harmonicToNoiseRatio } from './spectral'
 import type { TickState } from './performanceTracker'
-import type { Score } from './notation'
+import type { NoteEvent, Score } from './notation'
 import { durToTicks, pitchToMidi } from './notation'
 
 // Cooley-Tukey FFT in-place
@@ -60,7 +60,7 @@ function getExpectedAtTick(tick: number, score: Score): { kind: 'note' | 'rest' 
       const dur = durToTicks(event.dur)
       if (tick >= cursor && tick < cursor + dur) {
         return event.kind === 'note'
-          ? { kind: 'note', pitch: pitchToMidi((event as any).pitch) }
+          ? { kind: 'note', pitch: pitchToMidi((event as NoteEvent).pitch) }
           : { kind: 'rest', pitch: null }
       }
       cursor += dur

@@ -59,6 +59,7 @@ export function cellToScore(cell: Cell): Score {
         }),
       },
     ],
+    key: { tonic: "C", mode: "major"}
   }
 }
 
@@ -70,7 +71,7 @@ export function upgradeToCell(
   upgrade: CellUpgrade
 ): Cell {
   return {
-    name: upgrade.baseName ?? base.name,
+    baseName: upgrade.baseName ?? base.baseName,
     scaleDegs: upgrade.scaleDegs,
     durs: upgrade.durs,
     isRest: upgrade.isRest,

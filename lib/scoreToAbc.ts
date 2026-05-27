@@ -96,7 +96,8 @@ function splitCrossBeatEvents(events: Event[]): Event[] {
     if (
       ev.dur === "8" &&
       beatPos !== 0 &&
-      beatPos + ticks > TICKS_PER_QUARTER
+      beatPos + ticks > TICKS_PER_QUARTER &&
+      ev.kind === "note"
     ) {
       // Split into two tied 16ths
       const first: Event = { ...ev, dur: "16", tiedTo: true };

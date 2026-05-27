@@ -15,9 +15,12 @@ export default function OnboardingPage() {
   const supabase = createClient();
 
   useEffect(() => {
+    const form = document.querySelector("#deletion-form") as HTMLFormElement;
+    const submit = document.querySelector("#submit") as HTMLButtonElement;
+    const username = document.querySelector("#username") as HTMLInputElement;
     if (usernameFromURL.length >= 3 && email !== "") {
-      (document.querySelector("#username") as HTMLInputElement).value = usernameFromURL;
-      (document.querySelector("#deletion-form") as HTMLFormElement).requestSubmit(document.querySelector("#submit"));
+      username.value = usernameFromURL;
+      form?.requestSubmit(submit ?? undefined);
     }
   }, [email, usernameFromURL]);
 

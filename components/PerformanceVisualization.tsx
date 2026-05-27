@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef } from "react"
 import type { Score } from "@/lib/notation"
 
 type PlayedNote = {
@@ -73,11 +73,11 @@ export default function PerformanceVisualization({ playedEvents, score, tempo, c
   const STAFF_BOTTOM_STEP = TREBLE_BOTTOM_LINE_STEP
   const STAFF_TOP_STEP = TREBLE_BOTTOM_LINE_STEP + 8
 
-  function stepToY(step: number) {
+  const stepToY = useCallback((step: number) =>{
     return STAFF_TOP + 4 * LINE_SPACING - (step - TREBLE_BOTTOM_LINE_STEP) * (LINE_SPACING / 2)
-  }
+  }, [TREBLE_BOTTOM_LINE_STEP])
 
-  function drawLedgerLines(ctx: CanvasRenderingContext2D, x: number, step: number) {
+  const drawLedgerLines = useCallback((ctx: CanvasRenderingContext2D, x: number, step: number) => {
     ctx.strokeStyle = "rgba(255, 255, 255, 0.5)"
     ctx.lineWidth = 1
 
@@ -100,7 +100,7 @@ export default function PerformanceVisualization({ playedEvents, score, tempo, c
         ctx.stroke()
       }
     }
-  }
+  }, [STAFF_BOTTOM_STEP, STAFF_TOP_STEP, stepToY]);
 
   function drawArticulation(ctx: CanvasRenderingContext2D, x: number, y: number, type: "staccato" | "tenuto") {
     if (type === "staccato") {
@@ -362,7 +362,7 @@ export default function PerformanceVisualization({ playedEvents, score, tempo, c
       ctx.lineTo(playheadX, STAFF_TOP + 4 * LINE_SPACING + 10)
       ctx.stroke()
     }
-  }, [playedEvents, currentTime, score, tempo, transposeSemitones, currentNote])
+  }, [playedEvents, currentTime, score, tempo, transposeSemitones, currentNote, drawLedgerLines, stepToY])
 
   return <canvas ref={canvasRef} width={800} height={300} className="w-full h-auto bg-transparent" />
 }

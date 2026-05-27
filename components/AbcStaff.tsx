@@ -7,6 +7,8 @@ import { scoreToAbc } from "../lib/scoreToAbc";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import abcjs, { MidiBuffer } from "abcjs";
 import { getAudioContext, initAudioContext } from "@/lib/audio";
+import React from "react";
+import { abcSVGNodeCache } from "@/lib/abcSVGCache";
 
 // ── Config ───────────────────────────────────────────────────────────────────
 
@@ -16,7 +18,7 @@ const RESIZE_DEBOUNCE_MS = 500;
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type NoteResult = { tick: number; passed: boolean };
+export type NoteResult = { tick: number; passed: boolean };
 
 type Props = {
   score: Score;
@@ -27,6 +29,7 @@ type Props = {
   zoomLevel: number;
   transposeSemitones?: number;
   instrument: string;
+  canPlay: boolean;
   onLoad: () => void;
 };
 
@@ -151,16 +154,62 @@ function midiProgramNumber(instrument: string): number {
   }
 }
 
+function abcStaffPropsAreEqual(prev: Props, next: Props): boolean {
+  if (
+    prev.score === next.score &&
+    prev.currentTime === next.currentTime &&
+    prev.tempo === next.tempo &&
+    prev.zoomLevel === next.zoomLevel &&
+    prev.transposeSemitones === next.transposeSemitones &&
+    prev.instrument === next.instrument &&
+    prev.canPlay === next.canPlay &&
+    prev.onLoad === next.onLoad
+  ) {
+    return true;
+  }
+
+  if (prev.score !== next.score) {
+    if (prev.score.key.tonic !== next.score.key.tonic) return false;
+    if (prev.score.key.mode !== next.score.key.mode) return false;
+    if (prev.score.measures.length !== next.score.measures.length) return false;
+    for (let m = 0; m < prev.score.measures.length; m++) {
+      const pm = prev.score.measures[m];
+      const nm = next.score.measures[m];
+      if (pm.events.length !== nm.events.length) return false;
+      for (let e = 0; e < pm.events.length; e++) {
+        const pe = pm.events[e];
+        const ne = nm.events[e];
+        if (pe.kind !== ne.kind || pe.dur !== ne.dur) return false;
+        if (pe.kind === "note" && ne.kind === "note" && pe.pitch !== ne.pitch)
+          return false;
+      }
+    }
+  }
+
+  return (
+    prev.currentTime === next.currentTime &&
+    prev.tempo === next.tempo &&
+    prev.zoomLevel === next.zoomLevel &&
+    prev.transposeSemitones === next.transposeSemitones &&
+    prev.instrument === next.instrument &&
+    prev.canPlay === next.canPlay &&
+    prev.onLoad === next.onLoad
+  );
+}
+
+export default React.memo(AbcStaff, abcStaffPropsAreEqual);
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function AbcStaff({
+export function AbcStaff({
   score,
   currentTime,
   tempo,
   zoomLevel,
   transposeSemitones,
   instrument,
-  onLoad
+  canPlay,
+  onLoad,
 }: Props) {
   const [isPlaying, setIsPlaying] = useState(false);
   // wrapperRef measures the true available width — never touched by abc.js
@@ -202,6 +251,11 @@ export default function AbcStaff({
 
   // ── Core render function ─────────────────────────────────────────────────
   const renderAbc = useCallback(() => {
+    console.log("renderAbc called", {
+      cacheSize: abcSVGNodeCache?.size,
+      containerWidth: wrapperRef.current?.clientWidth,
+      score: score,
+    });
     if (!wrapperRef.current || !containerRef.current || !zoomLevelRef.current)
       return;
     // console.log("renderABC() at zoom level " + zoomLevelRef.current);
@@ -216,7 +270,35 @@ export default function AbcStaff({
         ? `%%MIDI transpose ${transposeSemitones}\n${abcString}`
         : abcString;
 
-    console.log(transposedAbcString);
+    // console.log(transposedAbcString);
+
+    const scale = 1.25 + 0.25 * zoomLevelRef.current;
+    const cacheKey = `${transposedAbcString}|${scale}|${containerWidth}`;
+
+    const t0 = performance.now();
+
+    const cachedNode = abcSVGNodeCache.get(cacheKey);
+    if (cachedNode) {
+      const t1 = performance.now();
+
+      containerRef.current.innerHTML = "";
+      containerRef.current.appendChild(cachedNode.cloneNode(true));
+      const t2 = performance.now();
+
+      // renderedRef.current = null; // no playback needed for cell previews
+      requestAnimationFrame(() => {
+        const t3 = performance.now();
+        console.log("cache hit timings", {
+          lookup: t1 - t0,
+          cloneAndAttach: t2 - t1,
+          untilNextFrame: t3 - t2,
+          total: t3 - t0,
+          key: cacheKey.slice(0, 60),
+        });
+        rebuildNoteXMap();
+      });
+      return;
+    }
 
     containerRef.current.innerHTML = "";
 
@@ -256,6 +338,10 @@ export default function AbcStaff({
       document.querySelector("#abcjs-container title")?.remove();
     }
 
+    if (svg && cacheKey) {
+      abcSVGNodeCache.set(cacheKey, svg.cloneNode(true) as SVGSVGElement);
+    }
+
     requestAnimationFrame(rebuildNoteXMap);
   }, [score, rebuildNoteXMap, transposeSemitones, onLoad]);
 
@@ -272,6 +358,7 @@ export default function AbcStaff({
 
   // ── ResizeObserver on WRAPPER (not container) ────────────────────────────
   useEffect(() => {
+    if (!canPlay) return;
     if (!wrapperRef.current) return;
     let resizeTimeout: NodeJS.Timeout | null = null;
 
@@ -286,7 +373,7 @@ export default function AbcStaff({
       observer.disconnect();
       if (resizeTimeout !== null) clearTimeout(resizeTimeout);
     };
-  }, [renderAbc]);
+  }, [renderAbc, canPlay]);
 
   // ── Playhead rAF loop ────────────────────────────────────────────────────
   const startPlayhead = useCallback(() => {
@@ -355,66 +442,69 @@ export default function AbcStaff({
         />
       </div>
 
-      <div className="flex flex-col gap-1">
-        <div className="flex flex-row gap-1 justify-start">
-          <button
-            onClick={async () => {
-              if (isPlaying) {
+      {canPlay && (
+        <div className="flex flex-col gap-1">
+          <div className="flex flex-row gap-1 justify-start">
+            <button
+              onClick={async () => {
+                if (isPlaying) {
+                  if (synthRef.current) {
+                    synthRef.current.stop();
+                    setIsPlaying(false);
+                  }
+                  return;
+                }
+                // play the midi file using abcjs
+                let ctx = getAudioContext();
+                if (!ctx) {
+                  initAudioContext();
+                  ctx = getAudioContext();
+                }
+                if (!ctx) return;
+                if (ctx.state !== "running") await ctx.resume();
+
+                if (!renderedRef.current) return;
+
+                if (!synthRef.current) {
+                  const synth = new abcjs.synth.CreateSynth();
+                  await synth.init({
+                    audioContext: ctx,
+                    visualObj: renderedRef.current,
+                    millisecondsPerMeasure:
+                      (60 / tempo) * score.measures[0].timeSig.beats * 1000,
+                    options: {
+                      soundFontUrl:
+                        "https://paulrosen.github.io/midi-js-soundfonts/FatBoy/",
+                      program: midiProgramNumber(instrument),
+                      soundFontVolumeMultiplier: 2.5,
+                    },
+                  });
+                  primedRef.current = await synth.prime();
+                  synthRef.current = synth;
+                }
+
                 if (synthRef.current) {
-                  synthRef.current.stop();
-                  setIsPlaying(false);
+                  if (!primedRef.current) return;
+                  setIsPlaying(true);
+                  if (isPlayingTimeoutRef.current) {
+                    clearTimeout(isPlayingTimeoutRef.current);
+                  }
+                  synthRef.current.start();
+                  isPlayingTimeoutRef.current = setTimeout(
+                    () => setIsPlaying(false),
+                    primedRef.current.duration * 1000,
+                  );
                 }
-                return;
+              }}
+              className={
+                "bg-transparent ml-4 text-gray-900 py-2 rounded-lg font-semibold select-none text-2xl cursor-pointer"
               }
-              // play the midi file using abcjs
-              let ctx = getAudioContext();
-              if (!ctx) {
-                initAudioContext();
-                ctx = getAudioContext();
-              }
-              if (!ctx) return;
-              if (ctx.state !== "running") await ctx.resume();
-
-              if (!renderedRef.current) return;
-
-              if (!synthRef.current) {
-                const synth = new abcjs.synth.CreateSynth();
-                await synth.init({
-                  audioContext: ctx,
-                  visualObj: renderedRef.current,
-                  millisecondsPerMeasure: (60 / tempo) * 4 * 1000,
-                  options: {
-                    soundFontUrl:
-                      "https://paulrosen.github.io/midi-js-soundfonts/FatBoy/",
-                    program: midiProgramNumber(instrument),
-                    soundFontVolumeMultiplier: 2.5,
-                  },
-                });
-                primedRef.current = await synth.prime();
-                synthRef.current = synth;
-              }
-
-              if (synthRef.current) {
-                if (!primedRef.current) return;
-                setIsPlaying(true);
-                if (isPlayingTimeoutRef.current) {
-                  clearTimeout(isPlayingTimeoutRef.current);
-                }
-                synthRef.current.start();
-                isPlayingTimeoutRef.current = setTimeout(
-                  () => setIsPlaying(false),
-                  primedRef.current.duration * 1000,
-                );
-              }
-            }}
-            className={
-              "bg-transparent ml-4 text-gray-900 py-2 rounded-lg font-semibold select-none text-2xl cursor-pointer"
-            }
-          >
-            <FontAwesomeIcon icon={isPlaying ? "pause" : "play"} />
-          </button>
+            >
+              <FontAwesomeIcon icon={isPlaying ? "pause" : "play"} />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
       {/* play / stop midi */}
     </>
   );

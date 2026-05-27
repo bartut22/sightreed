@@ -1,6 +1,20 @@
 import type { Score, Event } from "./notation"
 import { durToTicks, pitchToMidi } from "./notation"
 
+type PerformanceMatch = {
+  expected: {
+    kind: "note"
+    pitch: number | null
+  }
+  played: {
+    pitch: number | null
+    rms: number
+  }
+  pitchCorrect: boolean
+  timingError: number
+  durationAccuracy: number
+}
+
 export type TickState = {
   tick: number
   rawTick: number
@@ -270,12 +284,12 @@ export class PerformanceTracker {
   }
 
   getMatches() {
-    const matches: any[] = []
-    let currentMatch: any = null
+    const matches: PerformanceMatch[] = []
+    let currentMatch: PerformanceMatch | null = null
 
     for (const state of this.stateHistory) {
       if (state.expectedKind === "note") {
-        if (!currentMatch || currentMatch.expectedPitch !== state.expectedPitch) {
+        if (!currentMatch || currentMatch.expected.pitch !== state.expectedPitch) {
           if (currentMatch) matches.push(currentMatch)
           currentMatch = {
             expected: { kind: "note", pitch: state.expectedPitch },

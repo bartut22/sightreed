@@ -3,7 +3,7 @@
 import { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import Modal from "./Modal";
-import { Profile, requestDeleteOwnAccount } from "@/app/page";
+import { Profile } from "@/app/page";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { FormEvent, useState } from "react";
 
@@ -135,7 +135,7 @@ export default function ServerProfileModal({ onClose, user, profile }: Props) {
             }}
             className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg border-0 cursor-pointer flex flex-row items-center gap-2"
           >
-            <FontAwesomeIcon icon="fab fa-google" />
+            <FontAwesomeIcon icon={["fab", "google"]} />
             <p>Log in using Google</p>
           </button>
         </div>

@@ -43,6 +43,9 @@ import SettingsModal from "@/components/SettingsModal";
 import ServerProfileModal from "@/components/ServerProfileModal";
 import { User } from "@supabase/supabase-js";
 import { Profile } from "./page";
+import { Cell, CellUpgrade } from "@/lib/cellLibrary";
+import CellPreviewList from "@/components/CellPreviewList";
+import React from "react";
 
 library.add(fas, far, fab);
 
@@ -97,6 +100,7 @@ export default function Home({
 
   const [generated, setGenerated] = useState<{
     score: Score;
+    cells: (Cell | CellUpgrade)[];
     seed: number;
     range: { minMidi: number; maxMidi: number };
   } | null>(null);
@@ -130,6 +134,8 @@ export default function Home({
 
   const [siteLoaded, setSiteLoaded] = useState(false);
 
+  const [canSeeCells, setCanSeeCells] = useState(false);
+
   // const listeningSourceRef = useRef<AudioBufferSourceNode | null>(null)
 
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -137,6 +143,14 @@ export default function Home({
   const metronomeRef = useRef<Metronome | null>(null);
 
   const hasGeneratedOnMount = useRef(false);
+
+  const tonicMidi = React.useMemo(
+    () =>
+      generated?.score.key.tonic !== undefined
+        ? 60 + TONIC_TO_NUMBER[generated.score.key.tonic]
+        : 60,
+    [generated?.score.key.tonic],
+  );
   // const listeningMetRef = useRef<Metronome | null>(null)
 
   const transposeSemitones = INSTRUMENTS[instrument]?.transposeSemitones ?? 0;
@@ -179,12 +193,14 @@ export default function Home({
   };
 
   const mainFadeDelay = 1000;
-  const finishSiteLoad = () => {
+  const finishSiteLoad = useCallback(() => {
     setSiteLoaded(true);
     setTimeout(() => {
-      document.querySelector("main")?.classList.remove("pointer-events-none", "select-none");
+      document
+        .querySelector("main")
+        ?.classList.remove("pointer-events-none", "select-none");
     }, 100);
-  };
+  }, []);
 
   const getTonicDisplay = (): string => {
     const keyTonic = generated?.score.key.tonic;
@@ -376,6 +392,7 @@ export default function Home({
       );
       setGenerated({
         score: gen.score,
+        cells: gen.cells,
         seed: gen.seed,
         range: gen.range ?? { minMidi: 60, maxMidi: 88 },
       });
@@ -383,6 +400,11 @@ export default function Home({
       setGraphStateHistory([]);
       setPlayedNoteBlocks([]);
       setListeningMode(false);
+      // setSettingsChanged(false);
+      setPlaybackOffsetSec(0);
+      // Update settings with new seed
+      setSettings((prev) => ({ ...prev, seed: gen.seed }));
+
       if (recordingUrl) {
         URL.revokeObjectURL(recordingUrl);
         setRecordingUrl(null);
@@ -397,13 +419,8 @@ export default function Home({
         tempo: tempo.toString(),
       });
       window.history.replaceState({}, "", `?${params.toString()}`);
-      // setSettingsChanged(false);
-      setPlaybackOffsetSec(0);
-
-      // Update settings with new seed
-      setSettings((prev) => ({ ...prev, seed: gen.seed }));
     },
-    [settings, tempo, recordingUrl],
+    [settings, tempo, recordingUrl, instrument],
   );
 
   // // Load exercise from URL on mount
@@ -740,7 +757,9 @@ export default function Home({
 
   return (
     <>
-      <div className={`w-screen h-screen fixed flex items-center transition duration-1000 z-999 pointer-events-none select-none ${siteLoaded ? "bg-[rgba(0,0,0,0)] opacity-0" : "screen-cover"}`}>
+      <div
+        className={`w-screen h-screen fixed flex items-center transition duration-1000 z-999 pointer-events-none select-none ${siteLoaded ? "bg-[rgba(0,0,0,0)] opacity-0" : "screen-cover"}`}
+      >
         <h1
           className={`w-screen my-auto relative text-center text-3xl font-semibold`}
         >
@@ -1042,8 +1061,34 @@ export default function Home({
               zoomLevel={zoomLevel}
               transposeSemitones={transposeSemitones}
               instrument={instrument}
+              canPlay={true}
               onLoad={finishSiteLoad}
             />
+
+            {!assessment && (
+              <>
+                <label htmlFor="see-cells" className="text-black">
+                  See cells
+                </label>
+                <input
+                  id="see-cells"
+                  type="checkbox"
+                  onChange={(e) =>
+                    setCanSeeCells(e.target.checked)
+                  }
+                ></input>
+                {canSeeCells && 
+                <div className={`${canSeeCells ? "h-auto" : "h-0"} overflow-hidden`}><CellPreviewList
+                  cells={generated.cells}
+                  keySig={generated.score.key}
+                  tonicMidi={tonicMidi}
+                  tempo={tempo}
+                  transposeSemitones={transposeSemitones}
+                  instrument={instrument}
+                  canPlay={false}
+                /></div>}
+              </>
+            )}
 
             {assessment && (
               <ScoreRollView

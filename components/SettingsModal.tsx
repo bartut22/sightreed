@@ -52,6 +52,9 @@ export default function SettingsModal({
   tempo,
   setTempo,
 }: Props) {
+  const seedObj: { seed?: string } = ((settings.seed != null) ? { seed: settings.seed.toString()} : {})
+
+
   return (
     <Modal onClose={onClose}>
       <div className="flex flex-col gap-2">
@@ -101,7 +104,7 @@ export default function SettingsModal({
               };
               setSettings(updated);
               const params = new URLSearchParams({
-                seed: settings.seed.toString(),
+                ...seedObj,
                 bars: (settings.bars ?? -1).toString(),
                 difficulty: e.target.value,
                 tempo: (settings.tempo ?? 120).toString(),
@@ -129,7 +132,7 @@ export default function SettingsModal({
               const updated = { ...settings, bars: Number(e.target.value) };
               setSettings(updated);
               const params = new URLSearchParams({
-                seed: settings.seed.toString(),
+                ...seedObj,
                 bars: e.target.value,
                 difficulty: (settings.difficulty ?? -1).toString(),
                 tempo: (settings.tempo ?? 120).toString(),
@@ -157,7 +160,7 @@ export default function SettingsModal({
             onChange={(e) => {
               setTempo(Number(e.target.value));
               const params = new URLSearchParams({
-                seed: settings.seed.toString(),
+                ...seedObj,
                 bars: (settings.bars ?? -1).toString(),
                 difficulty: (settings.difficulty ?? -1).toString(),
                 tempo: e.target.value,
