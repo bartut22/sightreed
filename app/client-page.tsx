@@ -46,6 +46,7 @@ import { Profile } from "./page";
 import { Cell, CellUpgrade } from "@/lib/cellLibrary";
 import CellPreviewList from "@/components/CellPreviewList";
 import React from "react";
+import FeedbackForm from "@/components/FeedbackForm";
 
 library.add(fas, far, fab);
 
@@ -1129,6 +1130,9 @@ export default function Home({
             )}
           </div>
         )}
+
+
+        <FeedbackForm />
       </main>
     </>
   );
