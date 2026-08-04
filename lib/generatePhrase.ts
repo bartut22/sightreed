@@ -107,9 +107,9 @@ import { Cell, CellUpgrade, BASE_CELLS, CELL_UPGRADES } from "./cellLibrary";
 const INSTRUMENT_RANGES: Record<
   string,
   // { minMidi: number; maxMidi: number; preferredOctave: number }
-  { minMidi: number; maxMidi: number; }
+  { minMidi: number; maxMidi: number }
 > = {
-  flute: { minMidi: 60, maxMidi: 95 }, 
+  flute: { minMidi: 60, maxMidi: 95 },
   bbClarinet: { minMidi: 52, maxMidi: 86 },
   ebClarinet: { minMidi: 52, maxMidi: 86 },
   bbSoprano: { minMidi: 58, maxMidi: 89 },
@@ -589,7 +589,9 @@ function generatePhraseOnce(settings: GenerationSettings = {}): {
         //   }
         // }
 
-        const temperature = 0.3;
+        const temperature = 1.2;
+        const epsilon = 0.5;
+        const jitter = 0.08;
 
         const scoredCandidates = candidates.map((cand) => {
           const candDiff = cellDifficulty(cand);
@@ -601,29 +603,59 @@ function generatePhraseOnce(settings: GenerationSettings = {}): {
             candidateTotalRaw >= targetMinRaw &&
             candidateTotalRaw <= targetMaxRaw;
           const score = globalDeviation + 0.25 * perCellDeviation;
-          return { cand, score, candidateTotalRaw, inBand };
+          return { cand, score, candidateTotalRaw, inBand, candDiff };
         });
 
-        const anyInBand = scoredCandidates.some((s) => s.inBand);
+        // const anyInBand = scoredCandidates.some((s) => s.inBand);
 
-        const adjustedScores = scoredCandidates.map((s) => ({
-          ...s,
-          adjustedScore: s.score + (anyInBand && !s.inBand ? 1000 : 0),
-        }));
+        // const adjustedScores = scoredCandidates.map((s) => ({
+        //   ...s,
+        //   adjustedScore: s.score + (anyInBand && !s.inBand ? 1000 : 0),
+        // }));
 
-        const negScores = adjustedScores.map((s) => -s.adjustedScore);
-        const maxNeg = Math.max(...negScores);
-        const weights = negScores.map((s) =>
-          Math.exp((s - maxNeg) / temperature),
+        // const negScores = adjustedScores.map((s) => -s.adjustedScore);
+        // const maxNeg = Math.max(...negScores);
+        // const weights = negScores.map((s) =>
+        //   Math.exp((s - maxNeg) / temperature),
+        // );
+        // const totalWeight = weights.reduce((a, b) => a + b, 0);
+
+        // let r = rng() * totalWeight;
+        // let chosen = adjustedScores[adjustedScores.length - 1];
+        // for (let i = 0; i < adjustedScores.length; i++) {
+        //   r -= weights[i];
+        //   if (r <= 0) {
+        //     chosen = adjustedScores[i];
+        //     break;
+        //   }
+        // }
+
+        const feasiblePool = scoredCandidates.some((s) => s.inBand)
+          ? scoredCandidates.filter((s) => s.inBand)
+          : scoredCandidates;
+        const bestScore = Math.min(...feasiblePool.map((s) => s.score));
+
+        const shortlist = feasiblePool
+          .filter((s) => s.score <= bestScore + epsilon)
+          .map((s) => ({
+            ...s,
+            noisyScore: s.score + rng() * jitter,
+          }));
+
+        const shortListBest = Math.min(...shortlist.map((s) => s.noisyScore));
+        const weights = shortlist.map((s) =>
+          Math.exp(-(s.noisyScore - shortListBest) / temperature),
         );
+
         const totalWeight = weights.reduce((a, b) => a + b, 0);
 
         let r = rng() * totalWeight;
-        let chosen = adjustedScores[adjustedScores.length - 1];
-        for (let i = 0; i < adjustedScores.length; i++) {
+        let chosen = shortlist[shortlist.length - 1];
+
+        for (let i = 0; i < shortlist.length; i++) {
           r -= weights[i];
           if (r <= 0) {
-            chosen = adjustedScores[i];
+            chosen = shortlist[i];
             break;
           }
         }
@@ -631,7 +663,8 @@ function generatePhraseOnce(settings: GenerationSettings = {}): {
         const bestCandidate = chosen.cand;
         const bestTotalRaw = chosen.candidateTotalRaw;
 
-        const chosenDiff = cellDifficulty(bestCandidate);
+        // const chosenDiff = cellDifficulty(bestCandidate);
+        const chosenDiff = chosen.candDiff;
         const chosenTotalRaw = scoreSoFarRaw + chosenDiff + remainingBaseRaw;
 
         // Update running budget for the remaining cells.
@@ -829,24 +862,55 @@ export function generatePhrase(settings: GenerationSettings = {}): {
 } {
   if (RETURN_FAKE_PHRASE) {
     return {
-    score: {
+      score: {
         key: { tonic: "C", mode: "major" },
         measures: [
           {
             timeSig: { beats: 4, beatUnit: 4 },
             events: [
-              { kind: "note", dur: "q", pitch: midiToPitchSpellingInKey(60 + Math.floor(Math.random() * 12), { tonic: "C", mode: "major" }) },
-              { kind: "note", dur: "q", pitch: midiToPitchSpellingInKey(62 + Math.floor(Math.random() * 12), { tonic: "C", mode: "major" }) },
-              { kind: "note", dur: "q", pitch: midiToPitchSpellingInKey(64 + Math.floor(Math.random() * 12), { tonic: "C", mode: "major" }) },
-              { kind: "note", dur: "q", pitch: midiToPitchSpellingInKey(65 + Math.floor(Math.random() * 12), { tonic: "C", mode: "major" }) },
+              {
+                kind: "note",
+                dur: "q",
+                pitch: midiToPitchSpellingInKey(
+                  60 + Math.floor(Math.random() * 12),
+                  { tonic: "C", mode: "major" },
+                ),
+              },
+              {
+                kind: "note",
+                dur: "q",
+                pitch: midiToPitchSpellingInKey(
+                  62 + Math.floor(Math.random() * 12),
+                  { tonic: "C", mode: "major" },
+                ),
+              },
+              {
+                kind: "note",
+                dur: "q",
+                pitch: midiToPitchSpellingInKey(
+                  64 + Math.floor(Math.random() * 12),
+                  { tonic: "C", mode: "major" },
+                ),
+              },
+              {
+                kind: "note",
+                dur: "q",
+                pitch: midiToPitchSpellingInKey(
+                  65 + Math.floor(Math.random() * 12),
+                  { tonic: "C", mode: "major" },
+                ),
+              },
             ],
           },
         ],
       },
-      cells: Array.from({ length: 20 }, (_, i) => BASE_CELLS[i % BASE_CELLS.length]),
+      cells: Array.from(
+        { length: 20 },
+        (_, i) => BASE_CELLS[i % BASE_CELLS.length],
+      ),
       seed: 124,
       range: { minMidi: 60, maxMidi: 88 },
-  };
+    };
   }
 
   const requestedDifficulty = settings.difficulty ?? 2;
@@ -904,16 +968,16 @@ export function generatePhrase(settings: GenerationSettings = {}): {
     difficultyOutOfRange: true,
   };
 
-  console.error(
-    "[difficulty] Out of range after retries, using closest attempt",
-    {
-      ...meta,
-      allAttempts: allAttempts.map((a) => ({
-        seed: a.seed,
-        adj: a.adjDifficulty.toFixed(2),
-      })),
-    },
-  );
+  // console.error(
+  //   "[difficulty] Out of range after retries, using closest attempt",
+  //   {
+  //     ...meta,
+  //     allAttempts: allAttempts.map((a) => ({
+  //       seed: a.seed,
+  //       adj: a.adjDifficulty.toFixed(2),
+  //     })),
+  //   },
+  // );
 
   return {
     score: best.score,

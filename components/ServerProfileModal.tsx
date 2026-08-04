@@ -128,8 +128,8 @@ export default function ServerProfileModal({ onClose, user, profile }: Props) {
                 provider: "google",
                 options: {
                   redirectTo:
-                    "https://nondemonstrable-carmine-ungenially.ngrok-free.dev/auth/callback",
-                  // window.location.origin + "/auth/callback" + search,
+                    // "https://nondemonstrable-carmine-ungenially.ngrok-free.dev/auth/callback",
+                  window.location.origin + "/auth/callback" + search,
                 },
               });
             }}

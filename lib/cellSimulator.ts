@@ -183,8 +183,10 @@ console.log(
   `Simulating ${NUM_SIMS.toLocaleString()} cycles at difficulty ${DIFFICULTY} for ${BARS} bars...`,
 );
 
+const t0 = performance.now();
+
 const counts = simulate(NUM_SIMS, DIFFICULTY, BARS);
 
 const filename = `cell_rarities_diff${DIFFICULTY}_bars${BARS}.csv`;
 writeCsv(counts, NUM_SIMS, DIFFICULTY, filename);
-console.log("Done.");
+console.log(`Done after ${performance.now() - t0}ms (${Math.floor((performance.now() - t0) / 1000)}s)`);

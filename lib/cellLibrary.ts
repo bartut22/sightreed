@@ -403,12 +403,6 @@ export const CELL_UPGRADES: Record<string, CellUpgrade[]> = {
       baseName: "skip3rd",
     },
     {
-      minDifficulty: 2,
-      scaleDegs: [0, 2, 0],
-      durs: ["q.", "8", "q"],
-      baseName: "skip3rd",
-    },
-    {
       minDifficulty: 3,
       scaleDegs: [0, 2, 4],
       durs: ["q", "q", "q"],
@@ -430,12 +424,6 @@ export const CELL_UPGRADES: Record<string, CellUpgrade[]> = {
       minDifficulty: 4,
       scaleDegs: [0, 2, 1, 0],
       durs: ["q", "8", "8", "q"],
-      baseName: "skip3rd",
-    },
-    {
-      minDifficulty: 5,
-      scaleDegs: [0, 2, 4, 2, 0],
-      durs: ["8t", "8t", "8t", "q", "q"],
       baseName: "skip3rd",
     },
     {
@@ -1133,18 +1121,6 @@ export const CELL_UPGRADES: Record<string, CellUpgrade[]> = {
     {
       minDifficulty: 4,
       scaleDegs: [2, 3, 5],
-      durs: ["8t", "8t", "8t"],
-      baseName: "tripletRun",
-    },
-    {
-      minDifficulty: 4,
-      scaleDegs: [1, 2, 4],
-      durs: ["8t", "8t", "8t"],
-      baseName: "tripletRun",
-    },
-    {
-      minDifficulty: 4,
-      scaleDegs: [1, 0, -1],
       durs: ["8t", "8t", "8t"],
       baseName: "tripletRun",
     },
