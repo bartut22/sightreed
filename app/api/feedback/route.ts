@@ -3,7 +3,7 @@ import { z } from "zod";
 
 const feedbackSchema = z.object({
   message: z.string().min(1, "Message is required").max(1000),
-  email: z.string().email().optional(),
+  email: z.union([z.string().email(), z.literal("")]).optional(),
   page: z.string().optional(),
 });
 
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: parsed.error.flatten().fieldErrors },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   if (!webhookUrl) {
     return NextResponse.json(
       { error: "Webhook not configured" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      text: `New feedback${page ? ` (${page})` : ""}: ${message}${
+      content: `New feedback${page ? ` (${page})` : ""}: ${message}${
         email ? ` — from ${email}` : ""
       }`,
     }),
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
   if (!webhookRes.ok) {
     return NextResponse.json(
       { error: "Failed to deliver feedback" },
-      { status: 502 }
+      { status: 502 },
     );
   }
 
