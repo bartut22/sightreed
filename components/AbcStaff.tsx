@@ -474,7 +474,7 @@ export function AbcStaff({
                       (60 / tempo) * score.measures[0].timeSig.beats * 1000,
                     options: {
                       soundFontUrl:
-                        "https://paulrosen.github.io/midi-js-soundfonts/FatBoy/",
+                        "/soundfonts/FatBoy/",
                       program: midiProgramNumber(instrument),
                       soundFontVolumeMultiplier: 2.5,
                     },
