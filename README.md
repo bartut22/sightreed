@@ -1,4 +1,4 @@
-# Sightreed
+# Sightreed (https://sightreed.vercel.app)
 
 Free, unlimited sight-reading practice in the browser.
 
